@@ -2,7 +2,7 @@
 // api.js — Google Apps Script communication via GET (no CORS issues)
 // ============================================================
 
-const API_URL = 'https://script.google.com/macros/s/AKfycbw75ZhbyZBt6_iGiASA6YAjUU7Q7TutSXrB-vVGeGGC23YMvmMYVaXIe8ppISudeGMezw/exec';
+const API_URL = 'https://script.google.com/macros/s/AKfycbzF7MKv6Q0NSTRu5FXoZ_AOuS-MtyUwUS8ib90a1oT_uUzOIeCSILyVMk72o7TgPutIZw/exec';
 
 async function apiCall(action, payload = {}) {
   try {

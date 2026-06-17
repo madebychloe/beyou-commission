@@ -130,10 +130,12 @@ function handleLogout() {
 function startApp() {
   document.getElementById('topbar-user').textContent = APP.user.name;
 
-  // Show/hide admin tab
+  // Show/hide admin tab — always remove first, then re-add only for admin
   const nav = document.getElementById('bottom-nav');
-  // Add admin tab if needed
-  if (APP.user.role === 'admin' && !document.querySelector('[data-tab="admin"]')) {
+  const existingAdminBtn = document.querySelector('[data-tab="admin"]');
+  if (existingAdminBtn) existingAdminBtn.remove();
+
+  if (APP.user.role === 'admin') {
     const adminBtn = document.createElement('button');
     adminBtn.className = 'nav-btn';
     adminBtn.dataset.tab = 'admin';

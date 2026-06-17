@@ -3,7 +3,7 @@
 // ============================================================
 
 // 🔧 REPLACE THIS with your deployed Apps Script Web App URL
-const API_URL = 'https://script.google.com/macros/s/AKfycbxKT969aZUIBu_DG1MkUQoATzORiM_j-YyYt7d6iBgw-EOwpZV0M40Lairb2gr8cHSaPw/exec';
+const API_URL = 'https://script.google.com/macros/s/AKfycbw75ZhbyZBt6_iGiASA6YAjUU7Q7TutSXrB-vVGeGGC23YMvmMYVaXIe8ppISudeGMezw/exec';
 
 async function apiCall(action, payload = {}) {
   try {

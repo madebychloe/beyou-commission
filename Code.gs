@@ -3,10 +3,8 @@
 // Google Apps Script (Deploy as Web App)
 // ============================================================
 
-const SHEET_ID = SpreadsheetApp.getActiveSpreadsheet().getId();
 const ss = SpreadsheetApp.getActiveSpreadsheet();
 
-// Sheet names
 const SHEETS = {
   STAFF: 'Staff',
   RECORDS: 'Records',
@@ -15,11 +13,13 @@ const SHEETS = {
 
 // ============================================================
 // WEB APP ENTRY POINT
+// GET is used for all requests (avoids CORS preflight)
+// Action and payload passed as query params: ?action=login&payload={...}
 // ============================================================
-function doPost(e) {
+function doGet(e) {
   try {
-    const data = JSON.parse(e.postData.contents);
-    const action = data.action;
+    const action = e.parameter.action;
+    const payload = e.parameter.payload ? JSON.parse(e.parameter.payload) : {};
 
     const handlers = {
       'login': handleLogin,
@@ -35,20 +35,22 @@ function doPost(e) {
       'getAuditLog': handleGetAuditLog,
     };
 
-    if (!handlers[action]) return respond(false, 'Unknown action');
-    return handlers[action](data);
+    if (!action) return respond(true, 'Be You Commission API is running.');
+    if (!handlers[action]) return respond(false, 'Unknown action: ' + action);
+    return handlers[action](payload);
 
   } catch (err) {
     return respond(false, 'Server error: ' + err.message);
   }
 }
 
-function doGet(e) {
-  return ContentService.createTextOutput('Be You Commission API is running.');
+// Keep doPost as fallback
+function doPost(e) {
+  return doGet(e);
 }
 
 // ============================================================
-// SETUP — Run once to initialise sheets
+// SETUP
 // ============================================================
 function setupSheets() {
   setupStaffSheet();
@@ -61,7 +63,6 @@ function setupStaffSheet() {
   if (!sheet) sheet = ss.insertSheet(SHEETS.STAFF);
   sheet.clearContents();
   sheet.appendRow(['StaffID', 'Name', 'PIN', 'Role', 'MustResetPin', 'DeviceInfo', 'CreatedAt']);
-  // Default admin
   sheet.appendRow(['ADMIN001', 'Manager', hashPin('12345'), 'admin', 'FALSE', '', new Date().toISOString()]);
 }
 
@@ -80,7 +81,7 @@ function setupAuditSheet() {
 }
 
 // ============================================================
-// AUTH HANDLERS
+// AUTH
 // ============================================================
 function handleLogin(data) {
   const { name, pin, deviceInfo } = data;
@@ -88,15 +89,11 @@ function handleLogin(data) {
   const rows = sheet.getDataRange().getValues();
 
   for (let i = 1; i < rows.length; i++) {
-    const [staffId, staffName, storedPin, role, mustReset, , ] = rows[i];
+    const [staffId, staffName, storedPin, role, mustReset] = rows[i];
     if (staffName.toLowerCase() === name.toLowerCase() && storedPin === hashPin(pin)) {
-      // Update device info
       sheet.getRange(i + 1, 6).setValue(deviceInfo || '');
       sheet.getRange(i + 1, 7).setValue(new Date().toISOString());
-
-      // Log login
       logAudit(staffId, staffName, 'LOGIN', deviceInfo, '');
-
       return respond(true, 'Login successful', {
         staffId, name: staffName, role,
         mustResetPin: mustReset === true || mustReset === 'TRUE'
@@ -110,7 +107,6 @@ function handleChangePassword(data) {
   const { staffId, oldPin, newPin } = data;
   const sheet = ss.getSheetByName(SHEETS.STAFF);
   const rows = sheet.getDataRange().getValues();
-
   for (let i = 1; i < rows.length; i++) {
     if (rows[i][0] === staffId) {
       if (rows[i][2] !== hashPin(oldPin)) return respond(false, 'Current PIN is incorrect');
@@ -124,41 +120,27 @@ function handleChangePassword(data) {
 }
 
 // ============================================================
-// RECORD HANDLERS
+// RECORDS
 // ============================================================
 function handleAddRecord(data) {
   const { staffId, staffName, date, customerName, project, massage, product, totalSales, remarks } = data;
   const sheet = ss.getSheetByName(SHEETS.RECORDS);
   const recordId = 'REC' + Date.now();
   const now = new Date().toISOString();
-
-  sheet.appendRow([
-    recordId, staffId, staffName, date, customerName,
-    project || 0, massage || 0, product || 0, totalSales || 0,
-    remarks || '', now, now
-  ]);
-
+  sheet.appendRow([recordId, staffId, staffName, date, customerName,
+    project || 0, massage || 0, product || 0, totalSales || 0, remarks || '', now, now]);
   logAudit(staffId, staffName, 'ADD_RECORD', '', 'Customer: ' + customerName);
   return respond(true, 'Record added', { recordId });
 }
 
 function handleUpdateRecord(data) {
   const { recordId, staffId, role, date, customerName, project, massage, product, totalSales, remarks } = data;
-
-  // Lock check — only current + previous month editable, locks on 7th
-  if (!canEditRecord(date, role)) {
-    return respond(false, 'This record is locked and cannot be edited');
-  }
-
+  if (!canEditRecord(date, role)) return respond(false, 'This record is locked and cannot be edited');
   const sheet = ss.getSheetByName(SHEETS.RECORDS);
   const rows = sheet.getDataRange().getValues();
-
   for (let i = 1; i < rows.length; i++) {
     if (rows[i][0] === recordId) {
-      // Staff can only edit own records
-      if (role !== 'admin' && rows[i][1] !== staffId) {
-        return respond(false, 'Unauthorized');
-      }
+      if (role !== 'admin' && rows[i][1] !== staffId) return respond(false, 'Unauthorized');
       sheet.getRange(i + 1, 4).setValue(date);
       sheet.getRange(i + 1, 5).setValue(customerName);
       sheet.getRange(i + 1, 6).setValue(project || 0);
@@ -175,11 +157,10 @@ function handleUpdateRecord(data) {
 }
 
 function handleGetRecords(data) {
-  const { staffId, month, year } = data; // month = 1-12
+  const { staffId, month, year } = data;
   const sheet = ss.getSheetByName(SHEETS.RECORDS);
   const rows = sheet.getDataRange().getValues();
   const records = [];
-
   for (let i = 1; i < rows.length; i++) {
     const row = rows[i];
     if (row[1] !== staffId) continue;
@@ -195,11 +176,9 @@ function handleGetRecords(data) {
 function handleGetAllRecords(data) {
   const { role, filterStaffId, month, year } = data;
   if (role !== 'admin') return respond(false, 'Unauthorized');
-
   const sheet = ss.getSheetByName(SHEETS.RECORDS);
   const rows = sheet.getDataRange().getValues();
   const records = [];
-
   for (let i = 1; i < rows.length; i++) {
     const row = rows[i];
     if (filterStaffId && row[1] !== filterStaffId) continue;
@@ -213,13 +192,12 @@ function handleGetAllRecords(data) {
 }
 
 // ============================================================
-// STAFF MANAGEMENT (Admin only)
+// STAFF MANAGEMENT
 // ============================================================
 function handleGetStaffList(data) {
   const sheet = ss.getSheetByName(SHEETS.STAFF);
   const rows = sheet.getDataRange().getValues();
   const staff = [];
-  // Public: names only for login dropdown. Admin: full details.
   for (let i = 1; i < rows.length; i++) {
     if (data.role === 'admin') {
       staff.push({ staffId: rows[i][0], name: rows[i][1], role: rows[i][3], mustResetPin: rows[i][4] });
@@ -289,15 +267,10 @@ function canEditRecord(dateStr, role) {
   const today = now.getDate();
   const thisMonth = now.getMonth();
   const thisYear = now.getFullYear();
-
-  // Current month always editable
   if (recordDate.getMonth() === thisMonth && recordDate.getFullYear() === thisYear) return true;
-
-  // Previous month editable only before 7th
   const prevMonth = thisMonth === 0 ? 11 : thisMonth - 1;
   const prevYear = thisMonth === 0 ? thisYear - 1 : thisYear;
   if (recordDate.getMonth() === prevMonth && recordDate.getFullYear() === prevYear && today < 7) return true;
-
   return false;
 }
 

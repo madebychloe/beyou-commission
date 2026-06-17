@@ -1,16 +1,19 @@
 // ============================================================
-// api.js — All Google Apps Script communication
+// api.js — Google Apps Script communication via GET (no CORS issues)
 // ============================================================
 
-// 🔧 REPLACE THIS with your deployed Apps Script Web App URL
 const API_URL = 'https://script.google.com/macros/s/AKfycbw75ZhbyZBt6_iGiASA6YAjUU7Q7TutSXrB-vVGeGGC23YMvmMYVaXIe8ppISudeGMezw/exec';
 
 async function apiCall(action, payload = {}) {
   try {
-    const res = await fetch(API_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action, ...payload })
+    // Use GET with query params — avoids CORS preflight entirely
+    const params = new URLSearchParams({
+      action: action,
+      payload: JSON.stringify(payload)
+    });
+    const res = await fetch(`${API_URL}?${params.toString()}`, {
+      method: 'GET',
+      redirect: 'follow'
     });
     const data = await res.json();
     return data;
@@ -22,8 +25,7 @@ async function apiCall(action, payload = {}) {
 
 // ─── Auth ────────────────────────────────────────
 function apiLogin(name, pin) {
-  const deviceInfo = getDeviceInfo();
-  return apiCall('login', { name, pin, deviceInfo });
+  return apiCall('login', { name, pin, deviceInfo: getDeviceInfo() });
 }
 
 function apiChangePassword(staffId, oldPin, newPin) {
@@ -68,12 +70,7 @@ function apiGetAuditLog(role) {
   return apiCall('getAuditLog', { role });
 }
 
-// ─── Device fingerprint (for silent logging) ─────
+// ─── Device info (silent logging) ────────────────
 function getDeviceInfo() {
-  return [
-    navigator.userAgent,
-    screen.width + 'x' + screen.height,
-    navigator.language,
-    new Date().getTimezoneOffset()
-  ].join('|');
+  return [navigator.userAgent, screen.width + 'x' + screen.height, navigator.language].join('|');
 }

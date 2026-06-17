@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="theme-color" content="#1a1a2e" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <title>Be You — Commission</title>
+  <link rel="manifest" href="manifest.json" />
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════ -->
+<!-- SCREEN: LOGIN -->
+<!-- ═══════════════════════════════════════════ -->
+<div id="screen-login" class="screen active">
+  <div class="login-wrap">
+    <div class="brand">
+      <div class="brand-logo">BY</div>
+      <h1 class="brand-name">Be You Skin</h1>
+      <p class="brand-sub">Commission Tracker</p>
+    </div>
+    <div class="card login-card">
+      <div class="field-group">
+        <label class="field-label">Your Name</label>
+        <select id="login-name" class="field-input">
+          <option value="">Select your name…</option>
+        </select>
+      </div>
+      <div class="field-group">
+        <label class="field-label">PIN</label>
+        <div class="pin-wrap">
+          <input id="login-pin" type="password" inputmode="numeric" maxlength="6" placeholder="Enter PIN" class="field-input" />
+          <button class="pin-toggle" onclick="togglePin('login-pin', this)">👁</button>
+        </div>
+      </div>
+      <button class="btn btn-primary btn-full" onclick="handleLogin()">Sign In</button>
+      <p id="login-error" class="error-msg hidden"></p>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════ -->
+<!-- SCREEN: FORCE RESET PIN -->
+<!-- ═══════════════════════════════════════════ -->
+<div id="screen-reset-pin" class="screen">
+  <div class="page-header">
+    <h2 class="page-title">Set Your PIN</h2>
+    <p class="page-sub">First login detected. Please set a new PIN.</p>
+  </div>
+  <div class="page-body">
+    <div class="card">
+      <div class="field-group">
+        <label class="field-label">Current PIN</label>
+        <div class="pin-wrap">
+          <input id="reset-old" type="password" inputmode="numeric" maxlength="6" placeholder="12345 (default)" class="field-input" />
+          <button class="pin-toggle" onclick="togglePin('reset-old', this)">👁</button>
+        </div>
+      </div>
+      <div class="field-group">
+        <label class="field-label">New PIN</label>
+        <div class="pin-wrap">
+          <input id="reset-new" type="password" inputmode="numeric" maxlength="6" placeholder="Min 5 digits" class="field-input" />
+          <button class="pin-toggle" onclick="togglePin('reset-new', this)">👁</button>
+        </div>
+      </div>
+      <div class="field-group">
+        <label class="field-label">Confirm New PIN</label>
+        <div class="pin-wrap">
+          <input id="reset-confirm" type="password" inputmode="numeric" maxlength="6" placeholder="Repeat new PIN" class="field-input" />
+          <button class="pin-toggle" onclick="togglePin('reset-confirm', this)">👁</button>
+        </div>
+      </div>
+      <button class="btn btn-primary btn-full" onclick="handleForceReset()">Set PIN & Continue</button>
+      <p id="reset-error" class="error-msg hidden"></p>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════ -->
+<!-- MAIN APP SHELL (after login) -->
+<!-- ═══════════════════════════════════════════ -->
+<div id="screen-app" class="screen">
+  <!-- Top bar -->
+  <header class="topbar">
+    <div class="topbar-left">
+      <span class="topbar-logo">BY</span>
+      <span class="topbar-title">Be You</span>
+    </div>
+    <div class="topbar-right">
+      <span id="topbar-user" class="topbar-user"></span>
+      <button class="icon-btn" onclick="showSettings()">⚙️</button>
+      <button class="icon-btn" onclick="handleLogout()">🚪</button>
+    </div>
+  </header>
+
+  <!-- Tab content area -->
+  <main class="app-main" id="app-main">
+    <!-- Dynamic content injected here -->
+  </main>
+
+  <!-- Bottom nav -->
+  <nav class="bottom-nav" id="bottom-nav">
+    <button class="nav-btn active" data-tab="records" onclick="switchTab('records')">
+      <span class="nav-icon">📋</span>
+      <span class="nav-label">Records</span>
+    </button>
+    <button class="nav-btn" data-tab="add" onclick="switchTab('add')">
+      <span class="nav-icon add-icon">＋</span>
+      <span class="nav-label">Add</span>
+    </button>
+    <button class="nav-btn" data-tab="dashboard" onclick="switchTab('dashboard')">
+      <span class="nav-icon">📊</span>
+      <span class="nav-label">Dashboard</span>
+    </button>
+  </nav>
+</div>
+
+<!-- ═══════════════════════════════════════════ -->
+<!-- MODAL: Settings / Change PIN -->
+<!-- ═══════════════════════════════════════════ -->
+<div id="modal-settings" class="modal-overlay hidden">
+  <div class="modal-box">
+    <div class="modal-header">
+      <h3>Settings</h3>
+      <button onclick="closeModal('modal-settings')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div id="settings-change-pin">
+        <p class="section-label">Change PIN</p>
+        <div class="field-group">
+          <label class="field-label">Current PIN</label>
+          <input id="cp-old" type="password" inputmode="numeric" maxlength="6" class="field-input" />
+        </div>
+        <div class="field-group">
+          <label class="field-label">New PIN</label>
+          <input id="cp-new" type="password" inputmode="numeric" maxlength="6" class="field-input" />
+        </div>
+        <div class="field-group">
+          <label class="field-label">Confirm New PIN</label>
+          <input id="cp-confirm" type="password" inputmode="numeric" maxlength="6" class="field-input" />
+        </div>
+        <button class="btn btn-primary btn-full" onclick="handleChangePin()">Update PIN</button>
+        <p id="cp-msg" class="error-msg hidden"></p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════ -->
+<!-- MODAL: Edit Record -->
+<!-- ═══════════════════════════════════════════ -->
+<div id="modal-edit" class="modal-overlay hidden">
+  <div class="modal-box">
+    <div class="modal-header">
+      <h3>Edit Record</h3>
+      <button onclick="closeModal('modal-edit')">✕</button>
+    </div>
+    <div class="modal-body" id="modal-edit-body">
+      <!-- Injected by JS -->
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════ -->
+<!-- TOAST -->
+<!-- ═══════════════════════════════════════════ -->
+<div id="toast" class="toast hidden"></div>
+
+<script src="js/api.js"></script>
+<script src="js/app.js"></script>
+<script src="js/tabs.js"></script>
+<script src="js/export.js"></script>
+</body>
+</html>

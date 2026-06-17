@@ -216,12 +216,16 @@ function handleGetAllRecords(data) {
 // STAFF MANAGEMENT (Admin only)
 // ============================================================
 function handleGetStaffList(data) {
-  if (data.role !== 'admin') return respond(false, 'Unauthorized');
   const sheet = ss.getSheetByName(SHEETS.STAFF);
   const rows = sheet.getDataRange().getValues();
   const staff = [];
+  // Public: names only for login dropdown. Admin: full details.
   for (let i = 1; i < rows.length; i++) {
-    staff.push({ staffId: rows[i][0], name: rows[i][1], role: rows[i][3], mustResetPin: rows[i][4] });
+    if (data.role === 'admin') {
+      staff.push({ staffId: rows[i][0], name: rows[i][1], role: rows[i][3], mustResetPin: rows[i][4] });
+    } else {
+      staff.push({ name: rows[i][1] });
+    }
   }
   return respond(true, 'OK', { staff });
 }

@@ -2,66 +2,62 @@
 // app.js — Core state, auth, navigation
 // ============================================================
 
-// ─── App State ───────────────────────────────────
 let APP = {
-  user: null,        // { staffId, name, role, mustResetPin }
+  user: null,
   currentTab: 'records',
-  staffList: [],     // cached for admin dropdowns
+  staffList: [],
+  recordsCache: [],   // cache fetched records to avoid re-fetching for edit
 };
 
 // ─── Init ────────────────────────────────────────
 window.addEventListener('DOMContentLoaded', () => {
-  // Try restore session from sessionStorage
   const saved = sessionStorage.getItem('beyou_session');
   if (saved) {
     try {
-      APP.user = JSON.parse(saved);
-      startApp();
-      return;
-    } catch (e) { sessionStorage.removeItem('beyou_session'); }
+      const parsed = JSON.parse(saved);
+      // Validate required fields exist before trusting session
+      if (parsed && parsed.staffId && parsed.name && parsed.role) {
+        APP.user = parsed;
+        startApp();
+        return;
+      }
+    } catch (e) {}
+    sessionStorage.removeItem('beyou_session');
   }
-  loadStaffDropdown();
   showScreen('screen-login');
 });
 
-// ─── Load staff names for login dropdown ─────────
-async function loadStaffDropdown() {
-  // We load staff names from a public-readable endpoint
-  // For simplicity, pre-populate from API (staff list names only, no PINs)
-  const res = await apiCall('getStaffList', { role: 'public' });
-  const sel = document.getElementById('login-name');
-  if (res.success && res.staff) {
-    res.staff.forEach(s => {
-      const opt = document.createElement('option');
-      opt.value = s.name;
-      opt.textContent = s.name;
-      sel.appendChild(opt);
-    });
-  }
-}
-
-// ─── Login ───────────────────────────────────────
+// ─── Login — PIN only, no dropdown ───────────────
 async function handleLogin() {
   const name = document.getElementById('login-name').value.trim();
   const pin  = document.getElementById('login-pin').value.trim();
   const errEl = document.getElementById('login-error');
+  const btn   = document.getElementById('login-btn');
 
-  if (!name) return showFieldError(errEl, 'Please select your name.');
+  if (!name) return showFieldError(errEl, 'Please enter your name.');
   if (!pin)  return showFieldError(errEl, 'Please enter your PIN.');
 
   errEl.classList.add('hidden');
-  setLoadingBtn('Sign In');
+  btn.disabled = true;
+  btn.textContent = 'Signing in…';
 
   const res = await apiLogin(name, pin);
 
-  if (!res.success) {
-    return showFieldError(errEl, res.message || 'Login failed. Check your name and PIN.');
-  }
+  btn.disabled = false;
+  btn.textContent = 'SIGN IN';
 
-  APP.user = res;
+  if (!res.success) return showFieldError(errEl, res.message || 'Invalid name or PIN.');
+
+  // Store only the fields we need — avoid storing junk
+  APP.user = {
+    staffId:      res.staffId,
+    name:         res.name,
+    role:         res.role,
+    mustResetPin: res.mustResetPin
+  };
   sessionStorage.setItem('beyou_session', JSON.stringify(APP.user));
 
-  if (res.mustResetPin) {
+  if (APP.user.mustResetPin) {
     showScreen('screen-reset-pin');
   } else {
     startApp();
@@ -70,19 +66,25 @@ async function handleLogin() {
 
 // ─── Force PIN Reset ─────────────────────────────
 async function handleForceReset() {
-  const oldPin     = document.getElementById('reset-old').value.trim();
-  const newPin     = document.getElementById('reset-new').value.trim();
-  const confirmPin = document.getElementById('reset-confirm').value.trim();
-  const errEl      = document.getElementById('reset-error');
+  const oldPin  = document.getElementById('reset-old').value.trim();
+  const newPin  = document.getElementById('reset-new').value.trim();
+  const confirm = document.getElementById('reset-confirm').value.trim();
+  const errEl   = document.getElementById('reset-error');
+  const btn     = document.getElementById('reset-btn');
 
-  if (!oldPin || !newPin || !confirmPin) return showFieldError(errEl, 'Fill in all fields.');
-  if (newPin.length < 5) return showFieldError(errEl, 'New PIN must be at least 5 digits.');
-  if (newPin !== confirmPin) return showFieldError(errEl, 'New PINs do not match.');
+  if (!oldPin || !newPin || !confirm) return showFieldError(errEl, 'Fill in all fields.');
+  if (newPin.length < 5)  return showFieldError(errEl, 'New PIN must be at least 5 digits.');
+  if (newPin !== confirm) return showFieldError(errEl, 'New PINs do not match.');
   if (newPin === '12345') return showFieldError(errEl, 'Choose a different PIN from the default.');
 
   errEl.classList.add('hidden');
+  btn.disabled = true;
+  btn.textContent = 'Saving…';
 
   const res = await apiChangePassword(APP.user.staffId, oldPin, newPin);
+
+  btn.disabled = false;
+  btn.textContent = 'SET PIN & CONTINUE';
 
   if (!res.success) return showFieldError(errEl, res.message);
 
@@ -92,7 +94,7 @@ async function handleForceReset() {
   startApp();
 }
 
-// ─── Change PIN (from Settings) ──────────────────
+// ─── Change PIN ───────────────────────────────────
 async function handleChangePin() {
   const oldPin  = document.getElementById('cp-old').value.trim();
   const newPin  = document.getElementById('cp-new').value.trim();
@@ -100,13 +102,12 @@ async function handleChangePin() {
   const msgEl   = document.getElementById('cp-msg');
 
   if (!oldPin || !newPin || !confirm) return showFieldError(msgEl, 'Fill in all fields.');
-  if (newPin.length < 5) return showFieldError(msgEl, 'New PIN must be at least 5 digits.');
+  if (newPin.length < 5)  return showFieldError(msgEl, 'New PIN must be at least 5 digits.');
   if (newPin !== confirm) return showFieldError(msgEl, 'New PINs do not match.');
 
   msgEl.classList.add('hidden');
 
   const res = await apiChangePassword(APP.user.staffId, oldPin, newPin);
-
   if (!res.success) return showFieldError(msgEl, res.message);
 
   showToast('PIN updated!', 'success');
@@ -119,21 +120,20 @@ function handleLogout() {
   sessionStorage.removeItem('beyou_session');
   APP.user = null;
   APP.staffList = [];
-  // Clear fields
+  APP.recordsCache = [];
   document.getElementById('login-pin').value = '';
   document.getElementById('login-name').value = '';
   showScreen('screen-login');
-  loadStaffDropdown();
 }
 
 // ─── Start App ───────────────────────────────────
 function startApp() {
   document.getElementById('topbar-user').textContent = APP.user.name;
 
-  // Show/hide admin tab — always remove first, then re-add only for admin
+  // Rebuild nav — remove admin tab first, re-add only for admin
   const nav = document.getElementById('bottom-nav');
-  const existingAdminBtn = document.querySelector('[data-tab="admin"]');
-  if (existingAdminBtn) existingAdminBtn.remove();
+  const existing = document.querySelector('[data-tab="admin"]');
+  if (existing) existing.remove();
 
   if (APP.user.role === 'admin') {
     const adminBtn = document.createElement('button');
@@ -148,28 +148,23 @@ function startApp() {
   switchTab('records');
 }
 
-// ─── Screen management ───────────────────────────
+// ─── Screen ───────────────────────────────────────
 function showScreen(id) {
   document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
   document.getElementById(id).classList.add('active');
 }
 
-// ─── Modal ───────────────────────────────────────
+// ─── Modals ───────────────────────────────────────
 function showSettings() {
-  // Clear fields
-  ['cp-old','cp-new','cp-confirm'].forEach(id => document.getElementById(id).value = '');
+  ['cp-old','cp-new','cp-confirm'].forEach(id => { document.getElementById(id).value = ''; });
   document.getElementById('cp-msg').classList.add('hidden');
   openModal('modal-settings');
 }
-
-function openModal(id) { document.getElementById(id).classList.remove('hidden'); }
+function openModal(id)  { document.getElementById(id).classList.remove('hidden'); }
 function closeModal(id) { document.getElementById(id).classList.add('hidden'); }
 
-// Tap outside modal to close
 document.addEventListener('click', e => {
-  if (e.target.classList.contains('modal-overlay')) {
-    e.target.classList.add('hidden');
-  }
+  if (e.target.classList.contains('modal-overlay')) e.target.classList.add('hidden');
 });
 
 // ─── Toast ───────────────────────────────────────
@@ -183,31 +178,20 @@ function showToast(msg, type = '') {
 }
 
 // ─── Helpers ─────────────────────────────────────
-function showFieldError(el, msg) {
-  el.textContent = msg;
-  el.classList.remove('hidden');
-}
-
-function setLoadingBtn(label) {
-  // Minimal — could expand if needed
-}
+function showFieldError(el, msg) { el.textContent = msg; el.classList.remove('hidden'); }
 
 function togglePin(inputId, btn) {
   const inp = document.getElementById(inputId);
-  if (inp.type === 'password') { inp.type = 'text'; btn.textContent = '🙈'; }
-  else { inp.type = 'password'; btn.textContent = '👁'; }
+  inp.type = inp.type === 'password' ? 'text' : 'password';
+  btn.textContent = inp.type === 'password' ? '👁' : '🙈';
 }
 
-function formatRM(val) {
-  const n = parseFloat(val) || 0;
-  return 'RM ' + n.toFixed(2);
-}
+function formatRM(val) { return 'RM ' + (parseFloat(val) || 0).toFixed(2); }
 
 function formatDate(str) {
   if (!str) return '';
   const d = new Date(str);
-  if (isNaN(d)) return str;
-  return d.toLocaleDateString('en-MY', { day: '2-digit', month: 'short', year: 'numeric' });
+  return isNaN(d) ? str : d.toLocaleDateString('en-MY', { day: '2-digit', month: 'short', year: 'numeric' });
 }
 
 function getMonthYear() {
@@ -219,13 +203,11 @@ function monthLabel(m, y) {
   return new Date(y, m - 1, 1).toLocaleDateString('en-MY', { month: 'long', year: 'numeric' });
 }
 
-// Is record editable?
 function isEditable(dateStr) {
-  if (APP.user.role === 'admin') return true;
+  if (!APP.user || APP.user.role === 'admin') return true;
   const now = new Date();
   const rec = new Date(dateStr);
-  const today = now.getDate();
-  const tm = now.getMonth(), ty = now.getFullYear();
+  const today = now.getDate(), tm = now.getMonth(), ty = now.getFullYear();
   if (rec.getMonth() === tm && rec.getFullYear() === ty) return true;
   const pm = tm === 0 ? 11 : tm - 1;
   const py = tm === 0 ? ty - 1 : ty;
@@ -233,7 +215,6 @@ function isEditable(dateStr) {
   return false;
 }
 
-// Generate month options (last 12 months)
 function buildMonthOptions(selectedMonth, selectedYear) {
   const opts = ['<option value="">All Months</option>'];
   const now = new Date();

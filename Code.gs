@@ -212,7 +212,10 @@ function handleAddStaff(data) {
   if (data.role !== 'admin') return respond(false, 'Unauthorized');
   const sheet = ss.getSheetByName(SHEETS.STAFF);
   const staffId = 'STF' + Date.now();
-  sheet.appendRow([staffId, data.name, hashPin('12345'), data.staffRole || 'staff', 'TRUE', '', new Date().toISOString()]);
+  // Default PIN = first word of name (surname) + 123, e.g. "Tan Wei" -> "Tan123"
+  const surname = data.name.trim().split(' ')[0];
+  const defaultPin = surname + '123';
+  sheet.appendRow([staffId, data.name, hashPin(defaultPin), data.staffRole || 'staff', 'TRUE', '', new Date().toISOString()]);
   logAudit(data.adminId, 'Admin', 'ADD_STAFF', '', 'Added: ' + data.name);
   return respond(true, 'Staff added', { staffId });
 }
@@ -237,10 +240,12 @@ function handleResetStaffPin(data) {
   const rows = sheet.getDataRange().getValues();
   for (let i = 1; i < rows.length; i++) {
     if (rows[i][0] === data.targetStaffId) {
-      sheet.getRange(i + 1, 3).setValue(hashPin('12345'));
+      const surname = rows[i][1].trim().split(' ')[0];
+      const defaultPin = surname + '123';
+      sheet.getRange(i + 1, 3).setValue(hashPin(defaultPin));
       sheet.getRange(i + 1, 5).setValue('TRUE');
       logAudit(data.adminId, 'Admin', 'RESET_PIN', '', 'Reset PIN for: ' + rows[i][1]);
-      return respond(true, 'PIN reset to 12345');
+      return respond(true, 'PIN reset to ' + defaultPin);
     }
   }
   return respond(false, 'Staff not found');

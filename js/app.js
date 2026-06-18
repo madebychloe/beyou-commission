@@ -64,6 +64,7 @@ async function handleLogin() {
 
 // ─── Force PIN Reset ─────────────────────────────
 async function handleForceReset() {
+  if (!APP.user) return;
   const oldPin  = document.getElementById('reset-old').value.trim();
   const newPin  = document.getElementById('reset-new').value.trim();
   const confirm = document.getElementById('reset-confirm').value.trim();
@@ -94,6 +95,7 @@ async function handleForceReset() {
 
 // ─── Change PIN ───────────────────────────────────
 async function handleChangePin() {
+  if (!APP.user) return;
   const oldPin  = document.getElementById('cp-old').value.trim();
   const newPin  = document.getElementById('cp-new').value.trim();
   const confirm = document.getElementById('cp-confirm').value.trim();
@@ -125,6 +127,7 @@ function handleLogout() {
 
 // ─── Start App ───────────────────────────────────
 function startApp() {
+  if (!APP.user) return;
   document.getElementById('topbar-user').textContent = APP.user.name;
 
   // Rebuild nav — remove admin tab first, re-add only for admin

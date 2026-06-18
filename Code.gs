@@ -84,13 +84,14 @@ function setupAuditSheet() {
 // AUTH
 // ============================================================
 function handleLogin(data) {
-  const { name, pin, deviceInfo } = data;
+  const { pin, deviceInfo } = data;
   const sheet = ss.getSheetByName(SHEETS.STAFF);
   const rows = sheet.getDataRange().getValues();
+  const hashed = hashPin(pin);
 
   for (let i = 1; i < rows.length; i++) {
     const [staffId, staffName, storedPin, role, mustReset] = rows[i];
-    if (staffName.toLowerCase() === name.toLowerCase() && storedPin === hashPin(pin)) {
+    if (storedPin === hashed) {
       sheet.getRange(i + 1, 6).setValue(deviceInfo || '');
       sheet.getRange(i + 1, 7).setValue(new Date().toISOString());
       logAudit(staffId, staffName, 'LOGIN', deviceInfo, '');
@@ -100,17 +101,26 @@ function handleLogin(data) {
       });
     }
   }
-  return respond(false, 'Invalid name or PIN');
+  return respond(false, 'Invalid PIN. Please try again.');
 }
 
 function handleChangePassword(data) {
   const { staffId, oldPin, newPin } = data;
   const sheet = ss.getSheetByName(SHEETS.STAFF);
   const rows = sheet.getDataRange().getValues();
+
+  // Check new PIN is not already used by another staff
+  const hashedNew = hashPin(newPin);
+  for (let i = 1; i < rows.length; i++) {
+    if (rows[i][0] !== staffId && rows[i][2] === hashedNew) {
+      return respond(false, 'This PIN is already used by another staff. Please choose a different PIN.');
+    }
+  }
+
   for (let i = 1; i < rows.length; i++) {
     if (rows[i][0] === staffId) {
-      if (rows[i][2] !== hashPin(oldPin)) return respond(false, 'Current PIN is incorrect');
-      sheet.getRange(i + 1, 3).setValue(hashPin(newPin));
+      if (rows[i][2] !== hashPin(oldPin)) return respond(false, 'Current PIN is incorrect.');
+      sheet.getRange(i + 1, 3).setValue(hashedNew);
       sheet.getRange(i + 1, 5).setValue('FALSE');
       logAudit(staffId, rows[i][1], 'CHANGE_PIN', '', '');
       return respond(true, 'PIN changed successfully');

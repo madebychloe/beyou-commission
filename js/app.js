@@ -29,19 +29,17 @@ window.addEventListener('DOMContentLoaded', () => {
 
 // ─── Login — PIN only, no dropdown ───────────────
 async function handleLogin() {
-  const name = document.getElementById('login-name').value.trim();
-  const pin  = document.getElementById('login-pin').value.trim();
+  const pin   = document.getElementById('login-pin').value.trim();
   const errEl = document.getElementById('login-error');
   const btn   = document.getElementById('login-btn');
 
-  if (!name) return showFieldError(errEl, 'Please enter your name.');
-  if (!pin)  return showFieldError(errEl, 'Please enter your PIN.');
+  if (!pin) return showFieldError(errEl, 'Please enter your PIN.');
 
   errEl.classList.add('hidden');
   btn.disabled = true;
   btn.textContent = 'Signing in…';
 
-  const res = await apiLogin(name, pin);
+  const res = await apiLogin(pin);
 
   btn.disabled = false;
   btn.textContent = 'SIGN IN';
@@ -122,7 +120,6 @@ function handleLogout() {
   APP.staffList = [];
   APP.recordsCache = [];
   document.getElementById('login-pin').value = '';
-  document.getElementById('login-name').value = '';
   showScreen('screen-login');
 }
 

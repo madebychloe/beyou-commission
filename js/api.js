@@ -2,7 +2,7 @@
 // api.js — Google Apps Script communication via GET (no CORS issues)
 // ============================================================
 
-const API_URL = 'https://script.google.com/macros/s/AKfycbzF7MKv6Q0NSTRu5FXoZ_AOuS-MtyUwUS8ib90a1oT_uUzOIeCSILyVMk72o7TgPutIZw/exec';
+const API_URL = 'https://script.google.com/macros/s/AKfycbymFAwHooUdANsNIXXAWpI-8a4E1uW1miDlecrOiKyZQMZ65NilMBMJennjS46cDvN3HA/exec';
 
 async function apiCall(action, payload = {}) {
   try {
@@ -24,8 +24,8 @@ async function apiCall(action, payload = {}) {
 }
 
 // ─── Auth ────────────────────────────────────────
-function apiLogin(name, pin) {
-  return apiCall('login', { name, pin, deviceInfo: getDeviceInfo() });
+function apiLogin(pin) {
+  return apiCall('login', { pin, deviceInfo: getDeviceInfo() });
 }
 
 function apiChangePassword(staffId, oldPin, newPin) {

@@ -135,8 +135,7 @@ function startApp() {
 
   // Rebuild nav — remove admin tab first, re-add only for admin
   const nav = document.getElementById('bottom-nav');
-  const existing = document.querySelector('[data-tab="admin"]');
-  if (existing) existing.remove();
+  document.querySelectorAll('[data-tab="admin"],[data-tab="customers"]').forEach(b => b.remove());
 
   if (APP.user.role === 'admin') {
     const adminBtn = document.createElement('button');
@@ -145,6 +144,13 @@ function startApp() {
     adminBtn.innerHTML = '<span class="nav-icon">👥</span><span class="nav-label">Staff</span>';
     adminBtn.onclick = () => switchTab('admin');
     nav.appendChild(adminBtn);
+
+    const cusBtn = document.createElement('button');
+    cusBtn.className = 'nav-btn';
+    cusBtn.dataset.tab = 'customers';
+    cusBtn.innerHTML = '<span class="nav-icon">🪪</span><span class="nav-label">Customers</span>';
+    cusBtn.onclick = () => switchTab('customers');
+    nav.appendChild(cusBtn);
   }
 
   showScreen('screen-app');

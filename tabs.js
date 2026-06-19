@@ -15,6 +15,7 @@ function switchTab(tab) {
     case 'add':       renderAddTab(main); break;
     case 'dashboard': renderDashboardTab(main); break;
     case 'admin':     renderAdminTab(main); break;
+    case 'customers': renderCustomersTab(main); break;
   }
 }
 
@@ -546,13 +547,8 @@ async function renderAdminTab(main) {
       <button class="btn btn-ghost btn-sm" onclick="renderAuditLog()">View Login Audit</button>
     </div>
     <div id="audit-section"></div>
-    <div class="section-gap">
-      <h2 class="page-title" style="font-size:var(--fs-xl)">Customers</h2>
-    </div>
-    <button class="btn btn-primary btn-sm" style="margin-bottom:14px" onclick="showAddCustomerForm('admin')">+ Add Customer</button>
-    <div id="admin-customer-list"></div>`;
+`;
   loadAdminStaffList();
-  loadAdminCustomerList();
 }
 
 async function loadAdminStaffList() {
@@ -618,11 +614,20 @@ async function confirmResetPin(staffId, name) {
   else showToast(res.message, 'error');
 }
 
-async function loadAdminCustomerList() {
-  const listEl = document.getElementById('admin-customer-list');
+async function loadAdminCustomerList(listElId) {
+  const listEl = document.getElementById(listElId || 'cus-list');
   if (!listEl) return;
+  listEl.innerHTML = '<div class="loading"><span class="spinner"></span>Loading…</div>';
+
+  // Always fetch fresh for customers tab
+  const res = await apiGetCustomers();
+  if (res.success && res.customers) {
+    APP.customers = res.customers;
+    sessionStorage.setItem('beyou_customers', JSON.stringify(APP.customers));
+  }
+
   if (!APP.customers.length) {
-    listEl.innerHTML = '<div class="empty-state"><div class="empty-icon">👥</div><p class="empty-text">No customers yet.</p></div>';
+    listEl.innerHTML = '<div class="empty-state"><div class="empty-icon">🪪</div><p class="empty-text">No customers yet.</p></div>';
     return;
   }
   const sorted = [...APP.customers].sort((a, b) => +a.cardNo - +b.cardNo);
@@ -634,6 +639,47 @@ async function loadAdminCustomerList() {
       </div>
     </div>`).join('');
 }
+
+async function renderCustomersTab(main) {
+  if (!APP.user || APP.user.role !== 'admin') { main.innerHTML = ''; return; }
+  main.innerHTML = `
+    <div class="page-header">
+      <h2 class="page-title">Customers</h2>
+      <p class="page-sub">${APP.customers.length || '…'} customers</p>
+    </div>
+    <div class="filter-bar">
+      <input type="text" id="cus-search" class="field-input" placeholder="Search card no or name…"
+        oninput="filterCustomerList()" style="height:38px;font-size:13px" autocomplete="off" />
+    </div>
+    <button class="btn btn-primary btn-sm" style="margin-bottom:14px;width:100%" onclick="showAddCustomerForm('admin')">+ Add Customer</button>
+    <div id="cus-list" class="admin-staff-list"></div>`;
+  await loadAdminCustomerList('cus-list');
+
+  // Update subtitle with count
+  const sub = main.querySelector('.page-sub');
+  if (sub) sub.textContent = APP.customers.length + ' customers';
+}
+
+window.filterCustomerList = function() {
+  const q = document.getElementById('cus-search')?.value.toLowerCase().trim() || '';
+  const listEl = document.getElementById('cus-list');
+  if (!listEl) return;
+  const filtered = q
+    ? APP.customers.filter(c => c.name.toLowerCase().includes(q) || String(c.cardNo).includes(q))
+    : APP.customers;
+  const sorted = [...filtered].sort((a, b) => +a.cardNo - +b.cardNo);
+  if (!sorted.length) {
+    listEl.innerHTML = '<div class="empty-state"><div class="empty-icon">🪪</div><p class="empty-text">No match found.</p></div>';
+    return;
+  }
+  listEl.innerHTML = sorted.map(c => `
+    <div class="admin-staff-card">
+      <div class="admin-staff-info">
+        <div class="staff-name">${c.cardNo} — ${c.name}</div>
+        <div class="staff-role">${c.phone || 'No phone'} · <span style="color:var(--silver-deep);font-size:10px">${c.customerId}</span></div>
+      </div>
+    </div>`).join('');
+};
 
 async function renderAuditLog() {
   const sec = document.getElementById('audit-section');

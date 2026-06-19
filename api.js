@@ -74,6 +74,14 @@ function apiDeleteRecord(recordId, staffId, role) {
   return apiCall('deleteRecord', { recordId, staffId, role });
 }
 
+function apiGetCustomers() {
+  return apiCall('getCustomers', {});
+}
+
+function apiAddCustomer(name, cardNo, phone, staffId, staffName) {
+  return apiCall('addCustomer', { name, cardNo, phone, staffId, staffName });
+}
+
 // ─── Device info (silent logging) ────────────────
 function getDeviceInfo() {
   return [navigator.userAgent, screen.width + 'x' + screen.height, navigator.language].join('|');

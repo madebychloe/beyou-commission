@@ -71,10 +71,10 @@ async function exportToExcel() {
 
   const { monthStr, staffName } = getExportTitle();
 
-  const headers = ['Date', 'Staff', 'Customer Name', 'Project (RM)', 'Massage (RM)', 'Product (RM)', 'Total Sales (RM)', 'Remarks'];
+  const headers = ['Date', 'Staff', 'Card No', 'Customer Name', 'Project (RM)', 'Massage (RM)', 'Product (RM)', 'Total Sales (RM)', 'Remarks'];
   const rows = records.map(r => [
     r.date ? new Date(r.date).toLocaleDateString('en-MY') : '',
-    r.staffName, r.customerName,
+    r.staffName, r.cardNo || '', r.customerName,
     parseFloat(r.project)    || 0,
     parseFloat(r.massage)    || 0,
     parseFloat(r.product)    || 0,
@@ -82,7 +82,7 @@ async function exportToExcel() {
     r.remarks || ''
   ]);
 
-  const totalsRow = ['', '', 'TOTAL',
+  const totalsRow = ['', '', '', 'TOTAL',
     rows.reduce((s, r) => s + r[3], 0),
     rows.reduce((s, r) => s + r[4], 0),
     rows.reduce((s, r) => s + r[5], 0),
@@ -91,7 +91,7 @@ async function exportToExcel() {
   ];
 
   const ws = XLSX.utils.aoa_to_sheet([headers, ...rows, [], totalsRow]);
-  ws['!cols'] = [{ wch:14 },{ wch:16 },{ wch:22 },{ wch:14 },{ wch:14 },{ wch:14 },{ wch:16 },{ wch:24 }];
+  ws['!cols'] = [{ wch:14 },{ wch:16 },{ wch:10 },{ wch:22 },{ wch:14 },{ wch:14 },{ wch:14 },{ wch:16 },{ wch:24 }];
 
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, monthStr.substring(0, 31));
@@ -195,7 +195,7 @@ async function exportToPDF() {
   const tableRows = records.map(r => [
     r.date ? new Date(r.date).toLocaleDateString('en-MY', { day:'2-digit', month:'short' }) : '',
     r.staffName || '',
-    r.customerName || '',
+    r.cardNo ? `${r.cardNo} — ${r.customerName}` : (r.customerName || ''),
     `RM ${(+r.project || 0).toFixed(2)}`,
     `RM ${(+r.massage || 0).toFixed(2)}`,
     `RM ${(+r.product || 0).toFixed(2)}`,

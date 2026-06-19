@@ -8,7 +8,8 @@ const ss = SpreadsheetApp.getActiveSpreadsheet();
 const SHEETS = {
   STAFF: 'Staff',
   RECORDS: 'Records',
-  AUDIT: 'AuditLog'
+  AUDIT: 'AuditLog',
+  CUSTOMERS: 'Customers'
 };
 
 // ============================================================
@@ -33,6 +34,9 @@ function doGet(e) {
       'updateStaff': handleUpdateStaff,
       'resetStaffPin': handleResetStaffPin,
       'getAuditLog': handleGetAuditLog,
+      'deleteRecord': handleDeleteRecord,
+      'getCustomers': handleGetCustomers,
+      'addCustomer': handleAddCustomer,
     };
 
     if (!action) return respond(true, 'Be You Commission API is running.');
@@ -56,28 +60,58 @@ function setupSheets() {
   setupStaffSheet();
   setupRecordsSheet();
   setupAuditSheet();
+  setupCustomerSheet();
 }
 
 function setupStaffSheet() {
   let sheet = ss.getSheetByName(SHEETS.STAFF);
-  if (!sheet) sheet = ss.insertSheet(SHEETS.STAFF);
-  sheet.clearContents();
-  sheet.appendRow(['StaffID', 'Name', 'PIN', 'Role', 'MustResetPin', 'DeviceInfo', 'CreatedAt']);
-  sheet.appendRow(['ADMIN001', 'Manager', hashPin('12345'), 'admin', 'FALSE', '', new Date().toISOString()]);
+  if (!sheet) {
+    sheet = ss.insertSheet(SHEETS.STAFF);
+    sheet.appendRow(['StaffID', 'Name', 'PIN', 'Role', 'MustResetPin', 'DeviceInfo', 'CreatedAt']);
+    sheet.appendRow(['ADMIN001', 'Manager', hashPin('Manager123'), 'admin', 'TRUE', '', new Date().toISOString()]);
+    Logger.log('Staff sheet created with default Manager account (PIN: Manager123)');
+  } else {
+    Logger.log('Staff sheet already exists — skipped to preserve data');
+  }
 }
 
 function setupRecordsSheet() {
   let sheet = ss.getSheetByName(SHEETS.RECORDS);
-  if (!sheet) sheet = ss.insertSheet(SHEETS.RECORDS);
-  sheet.clearContents();
-  sheet.appendRow(['RecordID', 'StaffID', 'StaffName', 'Date', 'CustomerName', 'Project', 'Massage', 'Product', 'TotalSales', 'Remarks', 'CreatedAt', 'UpdatedAt']);
+  if (!sheet) {
+    sheet = ss.insertSheet(SHEETS.RECORDS);
+    sheet.appendRow(['RecordID', 'StaffID', 'StaffName', 'Date', 'CustomerID', 'CardNo', 'CustomerName', 'Project', 'Massage', 'Product', 'TotalSales', 'Remarks', 'CreatedAt', 'UpdatedAt']);
+    Logger.log('Records sheet created');
+  } else {
+    Logger.log('Records sheet already exists — skipped to preserve data');
+  }
 }
 
 function setupAuditSheet() {
   let sheet = ss.getSheetByName(SHEETS.AUDIT);
-  if (!sheet) sheet = ss.insertSheet(SHEETS.AUDIT);
-  sheet.clearContents();
-  sheet.appendRow(['Timestamp', 'StaffID', 'StaffName', 'Action', 'DeviceInfo', 'Details']);
+  if (!sheet) {
+    sheet = ss.insertSheet(SHEETS.AUDIT);
+    sheet.appendRow(['Timestamp', 'StaffID', 'StaffName', 'Action', 'DeviceInfo', 'Details']);
+    Logger.log('AuditLog sheet created');
+  } else {
+    Logger.log('AuditLog sheet already exists — skipped to preserve data');
+  }
+}
+
+function setupCustomerSheet() {
+  let sheet = ss.getSheetByName(SHEETS.CUSTOMERS);
+  if (!sheet) sheet = ss.insertSheet(SHEETS.CUSTOMERS);
+  if (sheet.getLastRow() === 0) {
+    sheet.appendRow(['CustomerID', 'CardNo', 'CustomerName', 'Phone', 'CreatedAt']);
+  }
+}
+
+function clearRecords() {
+  // Wipe all records except header row
+  const sheet = ss.getSheetByName(SHEETS.RECORDS);
+  if (sheet && sheet.getLastRow() > 1) {
+    sheet.deleteRows(2, sheet.getLastRow() - 1);
+  }
+  Logger.log('All records cleared');
 }
 
 // ============================================================
@@ -133,11 +167,11 @@ function handleChangePassword(data) {
 // RECORDS
 // ============================================================
 function handleAddRecord(data) {
-  const { staffId, staffName, date, customerName, project, massage, product, totalSales, remarks } = data;
+  const { staffId, staffName, date, customerId, cardNo, customerName, project, massage, product, totalSales, remarks } = data;
   const sheet = ss.getSheetByName(SHEETS.RECORDS);
   const recordId = 'REC' + Date.now();
   const now = new Date().toISOString();
-  sheet.appendRow([recordId, staffId, staffName, date, customerName,
+  sheet.appendRow([recordId, staffId, staffName, date, customerId || '', cardNo || '', customerName,
     project || 0, massage || 0, product || 0, totalSales || 0, remarks || '', now, now]);
   logAudit(staffId, staffName, 'ADD_RECORD', '', 'Customer: ' + customerName);
   return respond(true, 'Record added', { recordId });
@@ -152,13 +186,15 @@ function handleUpdateRecord(data) {
     if (rows[i][0] === recordId) {
       if (role !== 'admin' && rows[i][1] !== staffId) return respond(false, 'Unauthorized');
       sheet.getRange(i + 1, 4).setValue(date);
-      sheet.getRange(i + 1, 5).setValue(customerName);
-      sheet.getRange(i + 1, 6).setValue(project || 0);
-      sheet.getRange(i + 1, 7).setValue(massage || 0);
-      sheet.getRange(i + 1, 8).setValue(product || 0);
-      sheet.getRange(i + 1, 9).setValue(totalSales || 0);
-      sheet.getRange(i + 1, 10).setValue(remarks || '');
-      sheet.getRange(i + 1, 12).setValue(new Date().toISOString());
+      sheet.getRange(i + 1, 5).setValue(data.customerId || rows[i][4]);
+      sheet.getRange(i + 1, 6).setValue(data.cardNo || rows[i][5]);
+      sheet.getRange(i + 1, 7).setValue(customerName);
+      sheet.getRange(i + 1, 8).setValue(project || 0);
+      sheet.getRange(i + 1, 9).setValue(massage || 0);
+      sheet.getRange(i + 1, 10).setValue(product || 0);
+      sheet.getRange(i + 1, 11).setValue(totalSales || 0);
+      sheet.getRange(i + 1, 12).setValue(remarks || '');
+      sheet.getRange(i + 1, 14).setValue(new Date().toISOString());
       logAudit(staffId, '', 'UPDATE_RECORD', '', 'RecordID: ' + recordId);
       return respond(true, 'Record updated');
     }
@@ -273,6 +309,86 @@ function handleGetAuditLog(data) {
 }
 
 // ============================================================
+// CUSTOMER HANDLERS
+// ============================================================
+function handleGetCustomers(data) {
+  const sheet = ss.getSheetByName(SHEETS.CUSTOMERS);
+  if (!sheet) return respond(true, 'OK', { customers: [] });
+  const rows = sheet.getDataRange().getValues();
+  const customers = [];
+  for (let i = 1; i < rows.length; i++) {
+    if (!rows[i][0]) continue; // skip empty rows
+    customers.push({
+      customerId: rows[i][0],
+      cardNo:     String(rows[i][1]),
+      name:       rows[i][2],
+      phone:      rows[i][3] || ''
+    });
+  }
+  return respond(true, 'OK', { customers });
+}
+
+function handleAddCustomer(data) {
+  const { name, cardNo, phone } = data;
+  if (!name || !cardNo) return respond(false, 'Name and Card No are required.');
+
+  const sheet = ss.getSheetByName(SHEETS.CUSTOMERS);
+  const rows = sheet.getDataRange().getValues();
+
+  // Validate card no is pure number
+  if (!/^\d+$/.test(String(cardNo).trim())) {
+    return respond(false, 'Card No must be numbers only.');
+  }
+
+  // Check CardNo uniqueness
+  for (let i = 1; i < rows.length; i++) {
+    if (String(rows[i][1]).trim() === String(cardNo).trim()) {
+      return respond(false, 'Card No ' + cardNo + ' already exists. Please use a different number.');
+    }
+  }
+
+  // Auto-increment CustomerID — find highest existing number
+  let maxId = 0;
+  for (let i = 1; i < rows.length; i++) {
+    const id = String(rows[i][0]);
+    if (id.startsWith('CUS')) {
+      const num = parseInt(id.replace('CUS', '')) || 0;
+      if (num > maxId) maxId = num;
+    }
+  }
+  const nextId = 'CUS' + String(maxId + 1).padStart(4, '0');
+
+  sheet.appendRow([nextId, String(cardNo).trim(), name.trim(), phone || '', new Date().toISOString()]);
+  logAudit(data.staffId || '', data.staffName || '', 'ADD_CUSTOMER', '', 'Customer: ' + name);
+  return respond(true, 'Customer added', { customerId: nextId });
+}
+
+function handleDeleteRecord(data) {
+  const { recordId, staffId, role } = data;
+
+  // Same lock rule as edit
+  const sheet = ss.getSheetByName(SHEETS.RECORDS);
+  const rows = sheet.getDataRange().getValues();
+
+  for (let i = 1; i < rows.length; i++) {
+    if (rows[i][0] === recordId) {
+      // Staff can only delete own records
+      if (role !== 'admin' && rows[i][1] !== staffId) {
+        return respond(false, 'Unauthorized');
+      }
+      // Check lock rule
+      if (!canEditRecord(rows[i][3], role)) {
+        return respond(false, 'This record is locked and cannot be deleted');
+      }
+      sheet.deleteRow(i + 1);
+      logAudit(staffId, '', 'DELETE_RECORD', '', 'RecordID: ' + recordId);
+      return respond(true, 'Record deleted');
+    }
+  }
+  return respond(false, 'Record not found');
+}
+
+// ============================================================
 // HELPERS
 // ============================================================
 function canEditRecord(dateStr, role) {
@@ -292,10 +408,10 @@ function canEditRecord(dateStr, role) {
 function rowToRecord(row) {
   return {
     recordId: row[0], staffId: row[1], staffName: row[2],
-    date: row[3], customerName: row[4],
-    project: row[5], massage: row[6], product: row[7],
-    totalSales: row[8], remarks: row[9],
-    createdAt: row[10], updatedAt: row[11]
+    date: row[3], customerId: row[4], cardNo: row[5], customerName: row[6],
+    project: row[7], massage: row[8], product: row[9],
+    totalSales: row[10], remarks: row[11],
+    createdAt: row[12], updatedAt: row[13]
   };
 }
 
@@ -308,6 +424,25 @@ function logAudit(staffId, name, action, deviceInfo, details) {
   const sheet = ss.getSheetByName(SHEETS.AUDIT);
   if (!sheet) return;
   sheet.appendRow([new Date().toISOString(), staffId, name, action, deviceInfo || '', details || '']);
+}
+
+
+// ============================================================
+// ONE-TIME REPAIR — Run once to fix CustomerIDs
+// ============================================================
+function repairCustomerIDs() {
+  const sheet = ss.getSheetByName(SHEETS.CUSTOMERS);
+  const rows = sheet.getDataRange().getValues();
+  
+  // Skip header row
+  let counter = 1;
+  for (let i = 1; i < rows.length; i++) {
+    if (!rows[i][2]) continue; // skip empty rows (no name)
+    const newId = 'CUS' + String(counter).padStart(4, '0');
+    sheet.getRange(i + 1, 1).setValue(newId);
+    counter++;
+  }
+  Logger.log('Fixed ' + (counter - 1) + ' customer IDs. Last ID: CUS' + String(counter-1).padStart(4, '0'));
 }
 
 function respond(success, message, data = {}) {

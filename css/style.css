@@ -82,9 +82,12 @@ body {
   background: var(--white);
   align-items: center;
   justify-content: center;
+  /* Use min-height instead of height so it fills Safari correctly */
+  min-height: 100dvh;
+  min-height: -webkit-fill-available;
   padding: var(--sp-xl) var(--sp-lg);
-  /* push below iOS status bar */
   padding-top: calc(env(safe-area-inset-top) + var(--sp-xl));
+  padding-bottom: calc(env(safe-area-inset-bottom) + var(--sp-xl));
   position: relative;
   overflow: hidden;
 }
@@ -304,8 +307,8 @@ textarea.field-input { height: clamp(64px, 18vw, 80px); padding: var(--sp-xs) 12
 .filter-bar select:focus { border-color: var(--near-black); outline: none; }
 
 /* ─── EXPORT BAR ──────────────────────────────── */
-.export-bar { margin-bottom: var(--sp-sm); }
-.export-bar .btn { width: 100%; }
+.export-bar { margin-bottom: var(--sp-sm); display: flex; gap: var(--sp-xs); }
+.export-bar .btn { flex: 1; }
 
 /* ─── RECORD CARDS ────────────────────────────── */
 .records-list { display: flex; flex-direction: column; gap: var(--sp-xs); }
@@ -417,3 +420,57 @@ textarea.field-input { height: clamp(64px, 18vw, 80px); padding: var(--sp-xs) 12
 ::-webkit-scrollbar { width: 3px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: var(--silver); }
+
+/* ─── CUSTOMER SEARCH DROPDOWN ────────────────── */
+.customer-search-wrap { position: relative; }
+
+.cus-dropdown {
+  position: absolute;
+  top: calc(100% + 2px);
+  left: 0; right: 0;
+  background: var(--white);
+  border: 1px solid var(--silver);
+  border-top: 2px solid var(--near-black);
+  box-shadow: var(--shadow-lg);
+  z-index: 50;
+  max-height: 220px;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+.cus-dropdown.hidden { display: none; }
+
+.cus-option {
+  padding: 10px 12px;
+  cursor: pointer;
+  border-bottom: 1px solid var(--light-grey);
+  display: flex; gap: 8px; align-items: center;
+  flex-wrap: wrap;
+}
+.cus-option:last-child { border-bottom: none; }
+.cus-option:active { background: var(--off-white); }
+
+.cus-cardno {
+  font-weight: 600;
+  font-size: var(--fs-sm);
+  color: var(--near-black);
+  background: var(--light-grey);
+  padding: 1px 6px;
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+.cus-name {
+  font-size: var(--fs-sm);
+  color: var(--charcoal);
+  flex: 1;
+}
+.cus-phone {
+  font-size: var(--fs-xs);
+  color: var(--silver-deep);
+  flex-shrink: 0;
+}
+.cus-no-result {
+  font-size: var(--fs-sm);
+  color: var(--silver-deep);
+  font-style: italic;
+  cursor: default;
+}

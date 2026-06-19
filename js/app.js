@@ -6,7 +6,8 @@ let APP = {
   user: null,
   currentTab: 'records',
   staffList: [],
-  recordsCache: [],   // cache fetched records to avoid re-fetching for edit
+  recordsCache: [],
+  customers: [],      // cached customer list, loaded on login
 };
 
 // ─── Init ────────────────────────────────────────
@@ -118,9 +119,11 @@ async function handleChangePin() {
 function handleLogout() {
   if (!confirm('Sign out?')) return;
   sessionStorage.removeItem('beyou_session');
+  sessionStorage.removeItem('beyou_customers');
   APP.user = null;
   APP.staffList = [];
   APP.recordsCache = [];
+  APP.customers = [];
   document.getElementById('login-pin').value = '';
   showScreen('screen-login');
 }
@@ -132,8 +135,7 @@ function startApp() {
 
   // Rebuild nav — remove admin tab first, re-add only for admin
   const nav = document.getElementById('bottom-nav');
-  const existing = document.querySelector('[data-tab="admin"]');
-  if (existing) existing.remove();
+  document.querySelectorAll('[data-tab="admin"],[data-tab="customers"]').forEach(b => b.remove());
 
   if (APP.user.role === 'admin') {
     const adminBtn = document.createElement('button');
@@ -142,10 +144,34 @@ function startApp() {
     adminBtn.innerHTML = '<span class="nav-icon">👥</span><span class="nav-label">Staff</span>';
     adminBtn.onclick = () => switchTab('admin');
     nav.appendChild(adminBtn);
+
+    const cusBtn = document.createElement('button');
+    cusBtn.className = 'nav-btn';
+    cusBtn.dataset.tab = 'customers';
+    cusBtn.innerHTML = '<span class="nav-icon">🪪</span><span class="nav-label">Customers</span>';
+    cusBtn.onclick = () => switchTab('customers');
+    nav.appendChild(cusBtn);
   }
 
   showScreen('screen-app');
-  switchTab('records');
+  loadCustomers().then(() => switchTab('records'));
+}
+
+async function loadCustomers() {
+  // Try sessionStorage first
+  const cached = sessionStorage.getItem('beyou_customers');
+  if (cached) {
+    try {
+      APP.customers = JSON.parse(cached);
+      return;
+    } catch(e) {}
+  }
+  // Fetch from API
+  const res = await apiGetCustomers();
+  if (res.success && res.customers) {
+    APP.customers = res.customers;
+    sessionStorage.setItem('beyou_customers', JSON.stringify(APP.customers));
+  }
 }
 
 // ─── Screen ───────────────────────────────────────

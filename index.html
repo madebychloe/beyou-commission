@@ -25,7 +25,7 @@
       <div class="field-group">
         <label class="field-label">PIN</label>
         <div class="pin-wrap">
-          <input id="login-pin" type="password" inputmode="numeric" maxlength="10" placeholder="Enter PIN" class="field-input" autocomplete="current-password" />
+          <input id="login-pin" type="password" inputmode="text" autocomplete="off" maxlength="10" placeholder="Enter PIN" class="field-input" autocomplete="current-password" />
           <button class="pin-toggle" onclick="togglePin('login-pin', this)">👁</button>
         </div>
       </div>
@@ -46,21 +46,21 @@
       <div class="field-group">
         <label class="field-label">Current PIN (default)</label>
         <div class="pin-wrap">
-          <input id="reset-old" type="password" inputmode="numeric" maxlength="10" placeholder="Your default PIN" class="field-input" />
+          <input id="reset-old" type="password" inputmode="text" autocomplete="off" maxlength="10" placeholder="Your default PIN" class="field-input" />
           <button class="pin-toggle" onclick="togglePin('reset-old', this)">👁</button>
         </div>
       </div>
       <div class="field-group">
         <label class="field-label">New PIN</label>
         <div class="pin-wrap">
-          <input id="reset-new" type="password" inputmode="numeric" maxlength="10" placeholder="Min 5 digits" class="field-input" />
+          <input id="reset-new" type="password" inputmode="text" autocomplete="new-password" maxlength="10" placeholder="Min 5 digits" class="field-input" />
           <button class="pin-toggle" onclick="togglePin('reset-new', this)">👁</button>
         </div>
       </div>
       <div class="field-group">
         <label class="field-label">Confirm New PIN</label>
         <div class="pin-wrap">
-          <input id="reset-confirm" type="password" inputmode="numeric" maxlength="10" placeholder="Repeat new PIN" class="field-input" />
+          <input id="reset-confirm" type="password" inputmode="text" autocomplete="new-password" maxlength="10" placeholder="Repeat new PIN" class="field-input" />
           <button class="pin-toggle" onclick="togglePin('reset-confirm', this)">👁</button>
         </div>
       </div>
@@ -112,15 +112,15 @@
     <div class="modal-body">
       <div class="field-group">
         <label class="field-label">Current PIN</label>
-        <input id="cp-old" type="password" inputmode="numeric" maxlength="10" class="field-input" />
+        <input id="cp-old" type="password" inputmode="text" autocomplete="off" maxlength="10" class="field-input" />
       </div>
       <div class="field-group">
         <label class="field-label">New PIN</label>
-        <input id="cp-new" type="password" inputmode="numeric" maxlength="10" class="field-input" />
+        <input id="cp-new" type="password" inputmode="text" autocomplete="new-password" maxlength="10" class="field-input" />
       </div>
       <div class="field-group">
         <label class="field-label">Confirm New PIN</label>
-        <input id="cp-confirm" type="password" inputmode="numeric" maxlength="10" class="field-input" />
+        <input id="cp-confirm" type="password" inputmode="text" autocomplete="new-password" maxlength="10" class="field-input" />
       </div>
       <button class="btn btn-primary btn-full" onclick="handleChangePin()">UPDATE PIN</button>
       <p id="cp-msg" class="error-msg hidden"></p>

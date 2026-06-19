@@ -15,6 +15,7 @@ function switchTab(tab) {
     case 'add':       renderAddTab(main); break;
     case 'dashboard': renderDashboardTab(main); break;
     case 'admin':     renderAdminTab(main); break;
+    case 'customers': renderCustomersTab(main); break;
   }
 }
 
@@ -46,7 +47,8 @@ async function renderRecordsTab(main) {
       ${staffFilterHtml}
     </div>
     <div class="export-bar">
-      <button class="btn btn-ghost btn-sm" onclick="exportToExcel()">⬇ Export Excel</button>
+      <button class="btn btn-ghost btn-sm" onclick="exportToExcel()">⬇ Excel</button>
+      <button class="btn btn-ghost btn-sm" onclick="exportToPDF()">⬇ PDF</button>
     </div>
     <div id="records-list" class="records-list"></div>
   `;
@@ -93,13 +95,14 @@ function recordCard(r) {
   const editable = isEditable(r.date);
   const lockBadge = !editable ? '<span class="lock-badge">🔒 Locked</span>' : '';
   const editBtn = editable ? `<button class="btn btn-ghost btn-sm" onclick="openEditRecord('${r.recordId}')">Edit</button>` : '';
+  const deleteBtn = editable ? `<button class="btn btn-danger btn-sm" onclick="confirmDeleteRecord('${r.recordId}')">Delete</button>` : '';
   const staffBadge = APP.user.role === 'admin' ? `<span class="staff-badge">${r.staffName}</span><br>` : '';
 
   return `
     <div class="record-card ${!editable ? 'locked' : ''}" id="rc-${r.recordId}">
       ${staffBadge}
       <div class="record-top">
-        <span class="record-customer">${r.customerName}</span>
+        <span class="record-customer">${r.cardNo ? r.cardNo + ' — ' + r.customerName : r.customerName}</span>
         <span class="record-date">${formatDate(r.date)}</span>
       </div>
       <div class="record-amounts">
@@ -112,7 +115,7 @@ function recordCard(r) {
         <span class="total-val">${formatRM(r.totalSales)}</span>
       </div>
       ${r.remarks ? `<div class="record-remarks">${r.remarks}</div>` : ''}
-      <div class="record-actions">${editBtn}${lockBadge}</div>
+      <div class="record-actions">${editBtn}${deleteBtn}${lockBadge}</div>
     </div>`;
 }
 
@@ -133,8 +136,17 @@ function openEditRecord(recordId) {
       <input type="date" id="edit-date" class="field-input" value="${dateVal}" />
     </div>
     <div class="field-group">
-      <label class="field-label">Customer Name</label>
-      <input type="text" id="edit-customer" class="field-input" value="${r.customerName}" />
+      <label class="field-label">Customer (Card No — Name)</label>
+      <div class="customer-search-wrap" id="edit-cus-wrap">
+        <input type="text" id="edit-customer-search" class="field-input"
+          value="${r.cardNo ? r.cardNo + ' — ' + r.customerName : r.customerName}"
+          oninput="filterCustomers('edit')" onfocus="showCustomerDropdown('edit')" autocomplete="off" />
+        <div id="edit-customer-dropdown" class="cus-dropdown hidden"></div>
+        <input type="hidden" id="edit-customer-id" value="${r.customerId || ''}" />
+        <input type="hidden" id="edit-customer-cardno" value="${r.cardNo || ''}" />
+        <input type="hidden" id="edit-customer-name" value="${r.customerName}" />
+      </div>
+      <button class="btn btn-ghost btn-sm" style="margin-top:6px;width:100%" onclick="showAddCustomerForm('edit')">+ New Customer</button>
     </div>
     <div class="amount-row">
       <div class="field-group">
@@ -190,20 +202,151 @@ async function saveEditRecord() {
     staffId:     APP.user.staffId,
     role:        APP.user.role,
     date:        document.getElementById('edit-date').value,
-    customerName:document.getElementById('edit-customer').value.trim(),
+    customerId:  document.getElementById('edit-customer-id').value,
+    cardNo:      document.getElementById('edit-customer-cardno').value,
+    customerName:document.getElementById('edit-customer-name').value.trim(),
     project:     parseFloat(document.getElementById('edit-project').value) || 0,
     massage:     parseFloat(document.getElementById('edit-massage').value) || 0,
     product:     parseFloat(document.getElementById('edit-product').value) || 0,
     totalSales:  parseFloat(document.getElementById('edit-total').value) || 0,
     remarks:     document.getElementById('edit-remarks').value.trim(),
   };
-  if (!payload.customerName) return showFieldError(errEl, 'Customer name is required.');
+  if (!payload.customerName) return showFieldError(errEl, 'Please select a customer.');
   errEl.classList.add('hidden');
   const res = await apiUpdateRecord(payload);
   if (!res.success) return showFieldError(errEl, res.message);
   showToast('Record updated!', 'success');
   closeModal('modal-edit');
   switchTab('records');
+}
+
+// ─── Delete Record ───────────────────────────────
+async function confirmDeleteRecord(recordId) {
+  if (!APP.user) return;
+  const r = APP.recordsCache.find(x => x.recordId === recordId);
+  if (!r) { showToast('Record not found', 'error'); return; }
+
+  if (!confirm(`Delete record for "${r.customerName}"?\nThis cannot be undone.`)) return;
+
+  const res = await apiDeleteRecord(recordId, APP.user.staffId, APP.user.role);
+  if (!res.success) { showToast(res.message, 'error'); return; }
+
+  showToast('Record deleted', 'success');
+  // Remove from cache and DOM instantly — no full reload needed
+  APP.recordsCache = APP.recordsCache.filter(x => x.recordId !== recordId);
+  const el = document.getElementById('rc-' + recordId);
+  if (el) el.remove();
+
+  // Show empty state if no records left
+  const list = document.getElementById('records-list');
+  if (list && list.children.length === 0) {
+    list.innerHTML = '<div class="empty-state"><div class="empty-icon">📋</div><p class="empty-text">No records found for this period.</p></div>';
+  }
+}
+
+// ═══════════════════════════════════════════════
+// CUSTOMER SEARCH HELPERS
+// ═══════════════════════════════════════════════
+function filterCustomers(prefix) {
+  const q = document.getElementById(`${prefix}-customer-search`).value.toLowerCase().trim();
+  const dropdown = document.getElementById(`${prefix}-customer-dropdown`);
+
+  // Clear selection if user is editing
+  document.getElementById(`${prefix}-customer-id`).value = '';
+  document.getElementById(`${prefix}-customer-cardno`).value = '';
+  document.getElementById(`${prefix}-customer-name`).value = '';
+
+  if (!q) { dropdown.classList.add('hidden'); return; }
+
+  const matches = APP.customers.filter(c =>
+    c.name.toLowerCase().includes(q) ||
+    String(c.cardNo).includes(q)
+  ).slice(0, 10); // max 10 results
+
+  if (!matches.length) {
+    dropdown.innerHTML = `<div class="cus-option cus-no-result">No customer found — tap "+ New Customer"</div>`;
+    dropdown.classList.remove('hidden');
+    return;
+  }
+
+  dropdown.innerHTML = matches.map(c => `
+    <div class="cus-option" onclick="selectCustomer('${prefix}', '${c.customerId}', '${c.cardNo}', ${JSON.stringify(c.name)})">
+      <span class="cus-cardno">${c.cardNo}</span>
+      <span class="cus-name">${c.name}</span>
+      ${c.phone ? `<span class="cus-phone">${c.phone}</span>` : ''}
+    </div>`).join('');
+  dropdown.classList.remove('hidden');
+}
+
+function showCustomerDropdown(prefix) {
+  const q = document.getElementById(`${prefix}-customer-search`).value;
+  if (q.length > 0) filterCustomers(prefix);
+}
+
+function selectCustomer(prefix, customerId, cardNo, name) {
+  document.getElementById(`${prefix}-customer-search`).value = `${cardNo} — ${name}`;
+  document.getElementById(`${prefix}-customer-id`).value = customerId;
+  document.getElementById(`${prefix}-customer-cardno`).value = cardNo;
+  document.getElementById(`${prefix}-customer-name`).value = name;
+  document.getElementById(`${prefix}-customer-dropdown`).classList.add('hidden');
+}
+
+// Close dropdown when clicking outside
+document.addEventListener('click', e => {
+  if (!e.target.closest('.customer-search-wrap')) {
+    document.querySelectorAll('.cus-dropdown').forEach(d => d.classList.add('hidden'));
+  }
+});
+
+async function showAddCustomerForm(prefix) {
+  const modalBody = document.getElementById('modal-edit-body');
+  document.getElementById('modal-edit-title').textContent = 'Add New Customer';
+  modalBody.innerHTML = `
+    <div class="field-group">
+      <label class="field-label">Card No (numbers only)</label>
+      <input type="text" id="nc-cardno" class="field-input" placeholder="e.g. 1001" inputmode="numeric" autocomplete="off" />
+    </div>
+    <div class="field-group">
+      <label class="field-label">Customer Name</label>
+      <input type="text" id="nc-name" class="field-input" placeholder="Full name" autocomplete="off" />
+    </div>
+    <div class="field-group">
+      <label class="field-label">Phone (optional)</label>
+      <input type="tel" id="nc-phone" class="field-input" placeholder="e.g. 0123456789" autocomplete="off" />
+    </div>
+    <button class="btn btn-primary btn-full" onclick="submitNewCustomer('${prefix}')">ADD CUSTOMER</button>
+    <p id="nc-error" class="error-msg hidden"></p>
+  `;
+  openModal('modal-edit');
+}
+
+async function submitNewCustomer(prefix) {
+  if (!APP.user) return;
+  const cardNo = document.getElementById('nc-cardno').value.trim();
+  const name   = document.getElementById('nc-name').value.trim();
+  const phone  = document.getElementById('nc-phone').value.trim();
+  const errEl  = document.getElementById('nc-error');
+
+  if (!cardNo) return showFieldError(errEl, 'Card No is required.');
+  if (!/^\d+$/.test(cardNo)) return showFieldError(errEl, 'Card No must be numbers only.');
+  if (!name)   return showFieldError(errEl, 'Customer name is required.');
+
+  errEl.classList.add('hidden');
+
+  const res = await apiAddCustomer(name, cardNo, phone, APP.user.staffId, APP.user.name);
+  if (!res.success) return showFieldError(errEl, res.message);
+
+  // Add to local cache immediately
+  const newCus = { customerId: res.customerId, cardNo, name, phone };
+  APP.customers.push(newCus);
+  APP.customers.sort((a, b) => +a.cardNo - +b.cardNo);
+  sessionStorage.setItem('beyou_customers', JSON.stringify(APP.customers));
+
+  // Auto-select in form
+  selectCustomer(prefix, res.customerId, cardNo, name);
+
+  showToast(`${name} added!`, 'success');
+  closeModal('modal-edit');
 }
 
 // ═══════════════════════════════════════════════
@@ -223,8 +366,16 @@ function renderAddTab(main) {
         <input type="date" id="add-date" class="field-input" value="${today}" />
       </div>
       <div class="field-group">
-        <label class="field-label">Customer Name</label>
-        <input type="text" id="add-customer" class="field-input" placeholder="Enter customer name" />
+        <label class="field-label">Customer (Card No — Name)</label>
+        <div class="customer-search-wrap" id="add-cus-wrap">
+          <input type="text" id="add-customer-search" class="field-input" placeholder="Type card no or name…"
+            oninput="filterCustomers('add')" onfocus="showCustomerDropdown('add')" autocomplete="off" />
+          <div id="add-customer-dropdown" class="cus-dropdown hidden"></div>
+          <input type="hidden" id="add-customer-id" />
+          <input type="hidden" id="add-customer-cardno" />
+          <input type="hidden" id="add-customer-name" />
+        </div>
+        <button class="btn btn-ghost btn-sm" style="margin-top:6px;width:100%" onclick="showAddCustomerForm('add')">+ New Customer</button>
       </div>
       <hr class="divider" />
       <span class="section-label">Sales (RM)</span>
@@ -282,14 +433,16 @@ async function submitAddRecord() {
     staffId:      APP.user.staffId,
     staffName:    APP.user.name,
     date:         document.getElementById('add-date').value,
-    customerName: document.getElementById('add-customer').value.trim(),
+    customerId:   document.getElementById('add-customer-id').value,
+    cardNo:       document.getElementById('add-customer-cardno').value,
+    customerName: document.getElementById('add-customer-name').value.trim(),
     project:      parseFloat(document.getElementById('add-project').value) || 0,
     massage:      parseFloat(document.getElementById('add-massage').value) || 0,
     product:      parseFloat(document.getElementById('add-product').value) || 0,
     totalSales:   parseFloat(document.getElementById('add-total').value) || 0,
     remarks:      document.getElementById('add-remarks').value.trim(),
   };
-  if (!payload.customerName) return showFieldError(errEl, 'Customer name is required.');
+  if (!payload.customerName) return showFieldError(errEl, 'Please select a customer.');
   if (!payload.date)         return showFieldError(errEl, 'Date is required.');
   errEl.classList.add('hidden');
   btn.disabled = true; btn.textContent = 'SAVING…';
@@ -393,7 +546,8 @@ async function renderAdminTab(main) {
     <div class="section-gap">
       <button class="btn btn-ghost btn-sm" onclick="renderAuditLog()">View Login Audit</button>
     </div>
-    <div id="audit-section"></div>`;
+    <div id="audit-section"></div>
+`;
   loadAdminStaffList();
 }
 
@@ -459,6 +613,73 @@ async function confirmResetPin(staffId, name) {
   if (res.success) { showToast(`PIN reset for ${name}`, 'success'); loadAdminStaffList(); }
   else showToast(res.message, 'error');
 }
+
+async function loadAdminCustomerList(listElId) {
+  const listEl = document.getElementById(listElId || 'cus-list');
+  if (!listEl) return;
+  listEl.innerHTML = '<div class="loading"><span class="spinner"></span>Loading…</div>';
+
+  // Always fetch fresh for customers tab
+  const res = await apiGetCustomers();
+  if (res.success && res.customers) {
+    APP.customers = res.customers;
+    sessionStorage.setItem('beyou_customers', JSON.stringify(APP.customers));
+  }
+
+  if (!APP.customers.length) {
+    listEl.innerHTML = '<div class="empty-state"><div class="empty-icon">🪪</div><p class="empty-text">No customers yet.</p></div>';
+    return;
+  }
+  const sorted = [...APP.customers].sort((a, b) => +a.cardNo - +b.cardNo);
+  listEl.innerHTML = sorted.map(c => `
+    <div class="admin-staff-card">
+      <div class="admin-staff-info">
+        <div class="staff-name">${c.cardNo} — ${c.name}</div>
+        <div class="staff-role">${c.phone || 'No phone'}</div>
+      </div>
+    </div>`).join('');
+}
+
+async function renderCustomersTab(main) {
+  if (!APP.user || APP.user.role !== 'admin') { main.innerHTML = ''; return; }
+  main.innerHTML = `
+    <div class="page-header">
+      <h2 class="page-title">Customers</h2>
+      <p class="page-sub">${APP.customers.length || '…'} customers</p>
+    </div>
+    <div class="filter-bar">
+      <input type="text" id="cus-search" class="field-input" placeholder="Search card no or name…"
+        oninput="filterCustomerList()" style="height:38px;font-size:13px" autocomplete="off" />
+    </div>
+    <button class="btn btn-primary btn-sm" style="margin-bottom:14px;width:100%" onclick="showAddCustomerForm('admin')">+ Add Customer</button>
+    <div id="cus-list" class="admin-staff-list"></div>`;
+  await loadAdminCustomerList('cus-list');
+
+  // Update subtitle with count
+  const sub = main.querySelector('.page-sub');
+  if (sub) sub.textContent = APP.customers.length + ' customers';
+}
+
+window.filterCustomerList = function() {
+  const q = document.getElementById('cus-search')?.value.toLowerCase().trim() || '';
+  const listEl = document.getElementById('cus-list');
+  if (!listEl) return;
+  const filtered = q
+    ? APP.customers.filter(c => c.name.toLowerCase().includes(q) || String(c.cardNo).includes(q))
+    : APP.customers;
+  const sorted = [...filtered].sort((a, b) => +a.cardNo - +b.cardNo);
+  if (!sorted.length) {
+    listEl.innerHTML = '<div class="empty-state"><div class="empty-icon">🪪</div><p class="empty-text">No match found.</p></div>';
+    return;
+  }
+  listEl.innerHTML = sorted.map(c => `
+    <div class="admin-staff-card">
+      <div class="admin-staff-info">
+        <div class="staff-name">${c.cardNo} — ${c.name}</div>
+        <div class="staff-role">${c.phone || 'No phone'} · <span style="color:var(--silver-deep);font-size:10px">${c.customerId}</span></div>
+      </div>
+    </div>`).join('');
+};
 
 async function renderAuditLog() {
   const sec = document.getElementById('audit-section');

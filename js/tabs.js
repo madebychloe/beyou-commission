@@ -635,7 +635,7 @@ async function loadAdminCustomerList(listElId) {
     <div class="admin-staff-card">
       <div class="admin-staff-info">
         <div class="staff-name">${c.cardNo} — ${c.name}</div>
-        <div class="staff-role">${c.phone || 'No phone'}</div>
+        <div class="staff-role">${c.phone || 'No phone'} &nbsp;·&nbsp; <span style="color:var(--silver-deep);font-size:10px">${c.customerId}</span></div>
       </div>
     </div>`).join('');
 }
@@ -676,7 +676,7 @@ window.filterCustomerList = function() {
     <div class="admin-staff-card">
       <div class="admin-staff-info">
         <div class="staff-name">${c.cardNo} — ${c.name}</div>
-        <div class="staff-role">${c.phone || 'No phone'} · <span style="color:var(--silver-deep);font-size:10px">${c.customerId}</span></div>
+        <div class="staff-role">${c.phone || 'No phone'} &nbsp;·&nbsp; <span style="color:var(--silver-deep);font-size:10px">${c.customerId}</span></div>
       </div>
     </div>`).join('');
 };

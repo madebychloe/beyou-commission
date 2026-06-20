@@ -433,9 +433,21 @@ function canEditRecord(dateStr, role) {
 }
 
 function rowToRecord(row) {
+  // Format date as YYYY-MM-DD string — Sheets returns Date objects
+  let dateStr = '';
+  if (row[3]) {
+    const d = new Date(row[3]);
+    if (!isNaN(d)) {
+      dateStr = d.getFullYear() + '-' +
+        String(d.getMonth() + 1).padStart(2, '0') + '-' +
+        String(d.getDate()).padStart(2, '0');
+    } else {
+      dateStr = String(row[3]).split('T')[0];
+    }
+  }
   return {
     recordId: row[0], staffId: row[1], staffName: row[2],
-    date: row[3], customerId: row[4], cardNo: row[5], customerName: row[6],
+    date: dateStr, customerId: row[4], cardNo: row[5], customerName: row[6],
     project: row[7], massage: row[8], product: row[9],
     totalSales: row[10], remarks: row[11],
     createdAt: row[12], updatedAt: row[13]
@@ -457,6 +469,30 @@ function logAudit(staffId, name, action, deviceInfo, details) {
 // ============================================================
 // ONE-TIME REPAIR — Run once to fix CustomerIDs
 // ============================================================
+function repairCardNos() {
+  // Forces CardNo column to text format and pads all values to 4 digits
+  const sheet = ss.getSheetByName(SHEETS.CUSTOMERS);
+  const rows = sheet.getDataRange().getValues();
+  const header = rows[0].map(h => String(h).toLowerCase().trim());
+  const cardIdx = header.indexOf('cardno');
+  const col = (cardIdx >= 0 ? cardIdx : 1) + 1; // 1-based for getRange
+
+  // Set entire column to text format
+  sheet.getRange(2, col, sheet.getLastRow() - 1, 1).setNumberFormat('@');
+
+  let fixed = 0;
+  for (let i = 1; i < rows.length; i++) {
+    const raw = String(rows[i][col - 1] || '').trim().replace(/^'+/, '');
+    if (!raw || isNaN(parseInt(raw))) continue;
+    const padded = String(parseInt(raw)).padStart(4, '0');
+    if (raw !== padded) {
+      sheet.getRange(i + 1, col).setValue(padded);
+      fixed++;
+    }
+  }
+  Logger.log('repairCardNos: fixed ' + fixed + ' card numbers to 4-digit format');
+}
+
 function repairCustomerIDs() {
   const sheet = ss.getSheetByName(SHEETS.CUSTOMERS);
   const rows = sheet.getDataRange().getValues();

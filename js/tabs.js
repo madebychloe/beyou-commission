@@ -270,7 +270,12 @@ function filterCustomers(prefix) {
   }
 
   dropdown.innerHTML = matches.map(c => `
-    <div class="cus-option" onclick="selectCustomer('${prefix}', '${c.customerId}', '${c.cardNo}', ${JSON.stringify(c.name)})">
+    <div class="cus-option"
+      data-id="${c.customerId}"
+      data-cardno="${c.cardNo}"
+      data-name="${c.name.replace(/"/g, '&quot;')}"
+      data-prefix="${prefix}"
+      onclick="selectCustomerFromEl(this)">
       <span class="cus-cardno">${c.cardNo}</span>
       <span class="cus-name">${c.name}</span>
       ${c.phone ? `<span class="cus-phone">${c.phone}</span>` : ''}
@@ -281,6 +286,14 @@ function filterCustomers(prefix) {
 function showCustomerDropdown(prefix) {
   const q = document.getElementById(`${prefix}-customer-search`).value;
   if (q.length > 0) filterCustomers(prefix);
+}
+
+function selectCustomerFromEl(el) {
+  const prefix    = el.dataset.prefix;
+  const customerId = el.dataset.id;
+  const cardNo    = el.dataset.cardno;
+  const name      = el.dataset.name;
+  selectCustomer(prefix, customerId, cardNo, name);
 }
 
 function selectCustomer(prefix, customerId, cardNo, name) {

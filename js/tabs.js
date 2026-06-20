@@ -276,7 +276,7 @@ function filterCustomers(prefix) {
       data-name="${c.name.replace(/"/g, '&quot;')}"
       data-prefix="${prefix}"
       onclick="selectCustomerFromEl(this)">
-      <span class="cus-cardno">${c.cardNo}</span>
+      <span class="cus-cardno">${String(c.cardNo).padStart(4,'0')}</span>
       <span class="cus-name">${c.name}</span>
       ${c.phone ? `<span class="cus-phone">${c.phone}</span>` : ''}
     </div>`).join('');
@@ -297,7 +297,7 @@ function selectCustomerFromEl(el) {
 }
 
 function selectCustomer(prefix, customerId, cardNo, name) {
-  document.getElementById(`${prefix}-customer-search`).value = `${cardNo} — ${name}`;
+  document.getElementById(`${prefix}-customer-search`).value = `${String(cardNo).padStart(4,'0')} — ${name}`;
   document.getElementById(`${prefix}-customer-id`).value = customerId;
   document.getElementById(`${prefix}-customer-cardno`).value = cardNo;
   document.getElementById(`${prefix}-customer-name`).value = name;
@@ -335,14 +335,17 @@ async function showAddCustomerForm(prefix) {
 
 async function submitNewCustomer(prefix) {
   if (!APP.user) return;
-  const cardNo = document.getElementById('nc-cardno').value.trim();
+  let cardNo = document.getElementById('nc-cardno').value.trim();
   const name   = document.getElementById('nc-name').value.trim();
   const phone  = document.getElementById('nc-phone').value.trim();
   const errEl  = document.getElementById('nc-error');
 
   if (!cardNo) return showFieldError(errEl, 'Card No is required.');
   if (!/^\d+$/.test(cardNo)) return showFieldError(errEl, 'Card No must be numbers only.');
+  if (parseInt(cardNo) > 9999) return showFieldError(errEl, 'Card No must be 4 digits or less (0001–9999).');
   if (!name)   return showFieldError(errEl, 'Customer name is required.');
+  // Pad to 4 digits
+  cardNo = String(parseInt(cardNo)).padStart(4, '0');
 
   errEl.classList.add('hidden');
 
@@ -473,25 +476,51 @@ async function renderDashboardTab(main) {
   if (!APP.user) return;
   const { month, year } = getMonthYear();
   let selMonth = month, selYear = year;
+  let selStaff = '';
+  let todayMode = false;
+
+  // Load staff list for admin filter
+  if (APP.user.role === 'admin' && APP.staffList.length === 0) {
+    const staffRes = await apiGetStaffList(APP.user.role);
+    if (staffRes.success) APP.staffList = staffRes.staff;
+  }
+
+  const staffFilterHtml = APP.user.role === 'admin'
+    ? `<select id="dash-staff" onchange="onDashFilterChange(false)">
+        <option value="">All Staff</option>
+        ${APP.staffList.map(s => `<option value="${s.staffId}">${s.name}</option>`).join('')}
+      </select>` : '';
 
   main.innerHTML = `
     <div class="page-header"><h2 class="page-title">Dashboard</h2></div>
-    <div class="filter-bar">
-      <select id="dash-month" onchange="onDashFilterChange()">${buildMonthOptions(selMonth, selYear)}</select>
+    <div class="dash-filter-row">
+      <button id="today-btn" class="btn btn-ghost btn-sm" onclick="onDashFilterChange(true)">Today</button>
+      <select id="dash-month" onchange="onDashFilterChange(false)">${buildMonthOptions(selMonth, selYear)}</select>
+      ${staffFilterHtml}
     </div>
     <div id="dash-content"></div>`;
 
-  window.onDashFilterChange = () => {
-    const mv = document.getElementById('dash-month')?.value;
-    if (mv) { const [m,y] = mv.split('-'); selMonth=+m; selYear=+y; }
-    else { selMonth=null; selYear=null; }
-    loadDashContent(selMonth, selYear);
+  window.onDashFilterChange = (isToday) => {
+    if (isToday) {
+      todayMode = true;
+      document.getElementById('today-btn').classList.add('active-filter');
+      document.getElementById('dash-month').value = '';
+      loadDashContent(null, null, selStaff, true);
+    } else {
+      todayMode = false;
+      document.getElementById('today-btn').classList.remove('active-filter');
+      const mv = document.getElementById('dash-month')?.value;
+      if (mv) { const [m,y] = mv.split('-'); selMonth=+m; selYear=+y; }
+      else { selMonth=null; selYear=null; }
+      selStaff = document.getElementById('dash-staff')?.value || '';
+      loadDashContent(selMonth, selYear, selStaff, false);
+    }
   };
 
-  loadDashContent(selMonth, selYear);
+  loadDashContent(selMonth, selYear, selStaff, false);
 }
 
-async function loadDashContent(month, year) {
+async function loadDashContent(month, year, staffId, todayMode) {
   if (!APP.user) return;
   const dashEl = document.getElementById('dash-content');
   if (!dashEl) return;
@@ -499,13 +528,22 @@ async function loadDashContent(month, year) {
 
   let res;
   if (APP.user.role === 'admin') {
-    res = await apiGetAllRecords(APP.user.role, '', month, year);
+    res = await apiGetAllRecords(APP.user.role, staffId || '', month, year);
   } else {
     res = await apiGetRecords(APP.user.staffId, month, year);
   }
   if (!res.success) { dashEl.innerHTML = `<p class="error-msg">${res.message}</p>`; return; }
 
-  const records = res.records || [];
+  let records = res.records || [];
+
+  // Today filter — applied client-side
+  if (todayMode) {
+    const todayStr = new Date().toISOString().split('T')[0];
+    records = records.filter(r => {
+      const d = r.date ? String(r.date).split('T')[0] : '';
+      return d === todayStr;
+    });
+  }
   const totalSales   = records.reduce((s,r) => s + (+r.totalSales||0), 0);
   const totalProject = records.reduce((s,r) => s + (+r.project||0), 0);
   const totalMassage = records.reduce((s,r) => s + (+r.massage||0), 0);
@@ -533,7 +571,12 @@ async function loadDashContent(month, year) {
       </div>`;
   }
 
+  const filterLabel = todayMode
+    ? `Today — ${new Date().toLocaleDateString('en-MY', {day:'2-digit', month:'short', year:'numeric'})}`
+    : (month && year ? monthLabel(month, year) : 'All Time');
+
   dashEl.innerHTML = `
+    <p style="font-size:var(--fs-xs);letter-spacing:0.12em;text-transform:uppercase;color:var(--silver-deep);margin-bottom:12px">${filterLabel}</p>
     <div class="summary-grid">
       <div class="summary-card full">
         <div class="summary-num">${formatRM(totalSales)}</div>
@@ -647,7 +690,7 @@ async function loadAdminCustomerList(listElId) {
   listEl.innerHTML = sorted.map(c => `
     <div class="admin-staff-card">
       <div class="admin-staff-info">
-        <div class="staff-name">${c.cardNo} — ${c.name}</div>
+        <div class="staff-name">${String(c.cardNo).padStart(4,'0')} — ${c.name}</div>
         <div class="staff-role">${c.phone || 'No phone'} &nbsp;·&nbsp; <span style="color:var(--silver-deep);font-size:10px">${c.customerId}</span></div>
       </div>
     </div>`).join('');
@@ -688,7 +731,7 @@ window.filterCustomerList = function() {
   listEl.innerHTML = sorted.map(c => `
     <div class="admin-staff-card">
       <div class="admin-staff-info">
-        <div class="staff-name">${c.cardNo} — ${c.name}</div>
+        <div class="staff-name">${String(c.cardNo).padStart(4,'0')} — ${c.name}</div>
         <div class="staff-role">${c.phone || 'No phone'} &nbsp;·&nbsp; <span style="color:var(--silver-deep);font-size:10px">${c.customerId}</span></div>
       </div>
     </div>`).join('');

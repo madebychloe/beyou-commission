@@ -474,3 +474,30 @@ textarea.field-input { height: clamp(64px, 18vw, 80px); padding: var(--sp-xs) 12
   font-style: italic;
   cursor: default;
 }
+
+/* ─── DASHBOARD FILTER ROW ────────────────────── */
+.dash-filter-row {
+  display: flex;
+  gap: var(--sp-xs);
+  margin-bottom: var(--sp-sm);
+  flex-wrap: wrap;
+  align-items: center;
+}
+.dash-filter-row select {
+  flex: 1;
+  min-width: 120px;
+  height: clamp(36px, 10vw, 42px);
+  padding: 0 10px;
+  border: 1px solid var(--silver);
+  border-radius: var(--radius-sm);
+  font-family: var(--font-body);
+  font-size: var(--fs-sm);
+  color: var(--charcoal);
+  background: var(--white);
+  appearance: none;
+}
+.btn.active-filter {
+  background: var(--near-black);
+  color: var(--white);
+  border-color: var(--near-black);
+}

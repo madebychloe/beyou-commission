@@ -365,9 +365,9 @@ function handleAddCustomer(data) {
   // Always store as 4-digit padded string with leading apostrophe to force text in Sheets
   const paddedCardNo = String(parseInt(cardNoRaw)).padStart(4, '0');
 
-  // Check CardNo uniqueness
+  // Check CardNo uniqueness (CardNo is always column B = index 1)
   for (let i = 1; i < rows.length; i++) {
-    const existing = String(rows[i][colCard >= 0 ? colCard : 1]).trim().replace(/^'+/, '');
+    const existing = String(rows[i][1] || '').trim().replace(/^'+/, '');
     if (existing === paddedCardNo) {
       return respond(false, 'Card No ' + paddedCardNo + ' already exists. Please use a different number.');
     }

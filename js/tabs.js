@@ -505,7 +505,8 @@ async function renderDashboardTab(main) {
       todayMode = true;
       document.getElementById('today-btn').classList.add('active-filter');
       document.getElementById('dash-month').value = '';
-      loadDashContent(null, null, selStaff, true);
+      // Pass null month/year so backend returns all records — today filter applied client-side
+      loadDashContent(null, null, document.getElementById('dash-staff')?.value || '', true);
     } else {
       todayMode = false;
       document.getElementById('today-btn').classList.remove('active-filter');

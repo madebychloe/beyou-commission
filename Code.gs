@@ -315,14 +315,30 @@ function handleGetCustomers(data) {
   const sheet = ss.getSheetByName(SHEETS.CUSTOMERS);
   if (!sheet) return respond(true, 'OK', { customers: [] });
   const rows = sheet.getDataRange().getValues();
+  if (rows.length < 2) return respond(true, 'OK', { customers: [] });
+
+  // Detect column positions from header row — handles any column order
+  const header = rows[0].map(h => String(h).toLowerCase().trim());
+  const colId    = header.indexOf('customerid');
+  const colCard  = header.indexOf('cardno');
+  const colName  = header.indexOf('customername');
+  const colPhone = header.indexOf('phone');
+
+  // Fallback to fixed positions if headers not found
+  const idIdx    = colId    >= 0 ? colId    : 0;
+  const cardIdx  = colCard  >= 0 ? colCard  : 1;
+  const nameIdx  = colName  >= 0 ? colName  : 2;
+  const phoneIdx = colPhone >= 0 ? colPhone : 3;
+
   const customers = [];
   for (let i = 1; i < rows.length; i++) {
-    if (!rows[i][0]) continue; // skip empty rows
+    const name = String(rows[i][nameIdx] || '').trim();
+    if (!name) continue; // skip empty rows
     customers.push({
-      customerId: rows[i][0],
-      cardNo:     String(rows[i][1]),
-      name:       rows[i][2],
-      phone:      rows[i][3] || ''
+      customerId: String(rows[i][idIdx]  || '').trim(),
+      cardNo:     String(rows[i][cardIdx] || '').trim(),
+      name:       name,
+      phone:      String(rows[i][phoneIdx] || '').trim()
     });
   }
   return respond(true, 'OK', { customers });

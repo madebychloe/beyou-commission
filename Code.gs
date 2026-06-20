@@ -334,9 +334,12 @@ function handleGetCustomers(data) {
   for (let i = 1; i < rows.length; i++) {
     const name = String(rows[i][nameIdx] || '').trim();
     if (!name) continue; // skip empty rows
+    // Strip leading apostrophe (used to force text format in Sheets) and pad to 4 digits
+    const rawCard = String(rows[i][cardIdx] || '').trim().replace(/^'+/, '');
+    const paddedCard = rawCard ? String(parseInt(rawCard) || rawCard).padStart(4, '0') : '';
     customers.push({
       customerId: String(rows[i][idIdx]  || '').trim(),
-      cardNo:     String(rows[i][cardIdx] || '').trim(),
+      cardNo:     paddedCard,
       name:       name,
       phone:      String(rows[i][phoneIdx] || '').trim()
     });
@@ -352,14 +355,21 @@ function handleAddCustomer(data) {
   const rows = sheet.getDataRange().getValues();
 
   // Validate card no is pure number
-  if (!/^\d+$/.test(String(cardNo).trim())) {
+  const cardNoRaw = String(cardNo).trim().replace(/^0+/, '') || '0';
+  if (!/^[0-9]+$/.test(cardNoRaw)) {
     return respond(false, 'Card No must be numbers only.');
   }
+  if (parseInt(cardNoRaw) > 9999) {
+    return respond(false, 'Card No must be 4 digits or less (0001–9999).');
+  }
+  // Always store as 4-digit padded string with leading apostrophe to force text in Sheets
+  const paddedCardNo = String(parseInt(cardNoRaw)).padStart(4, '0');
 
   // Check CardNo uniqueness
   for (let i = 1; i < rows.length; i++) {
-    if (String(rows[i][1]).trim() === String(cardNo).trim()) {
-      return respond(false, 'Card No ' + cardNo + ' already exists. Please use a different number.');
+    const existing = String(rows[i][colCard >= 0 ? colCard : 1]).trim().replace(/^'+/, '');
+    if (existing === paddedCardNo) {
+      return respond(false, 'Card No ' + paddedCardNo + ' already exists. Please use a different number.');
     }
   }
 
@@ -374,7 +384,8 @@ function handleAddCustomer(data) {
   }
   const nextId = 'CUS' + String(maxId + 1).padStart(4, '0');
 
-  sheet.appendRow([nextId, String(cardNo).trim(), name.trim(), phone || '', new Date().toISOString()]);
+  // Prepend apostrophe to force Google Sheets to treat as text (preserves leading zeros)
+  sheet.appendRow([nextId, "'" + paddedCardNo, name.trim(), phone || '', new Date().toISOString()]);
   logAudit(data.staffId || '', data.staffName || '', 'ADD_CUSTOMER', '', 'Customer: ' + name);
   return respond(true, 'Customer added', { customerId: nextId });
 }

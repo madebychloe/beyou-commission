@@ -538,9 +538,14 @@ async function loadDashContent(month, year, staffId, todayMode) {
 
   // Today filter — applied client-side
   if (todayMode) {
-    const todayStr = new Date().toISOString().split('T')[0];
+    const now = new Date();
+    const todayStr = now.getFullYear() + '-' +
+      String(now.getMonth() + 1).padStart(2, '0') + '-' +
+      String(now.getDate()).padStart(2, '0');
     records = records.filter(r => {
-      const d = r.date ? String(r.date).split('T')[0] : '';
+      if (!r.date) return false;
+      // Normalize — handle both YYYY-MM-DD and Date strings
+      const d = String(r.date).substring(0, 10);
       return d === todayStr;
     });
   }

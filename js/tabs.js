@@ -111,8 +111,8 @@ function recordCard(r) {
         <div class="amount-item"><span class="amount-label">Product</span><span class="amount-val">${formatRM(r.product)}</span></div>
       </div>
       <div class="record-total">
-        <span class="total-label">Total Sales</span>
-        <span class="total-val">${formatRM(r.totalSales)}</span>
+        <span class="total-label">Collected</span>
+        <span class="total-val">${formatRM(r.amountCollected)}</span>
       </div>
       ${r.remarks ? `<div class="record-remarks">${r.remarks}</div>` : ''}
       <div class="record-actions">${editBtn}${deleteBtn}${lockBadge}</div>
@@ -151,25 +151,24 @@ function openEditRecord(recordId) {
     <div class="amount-row">
       <div class="field-group">
         <label class="field-label">Project (RM)</label>
-        <input type="number" id="edit-project" class="field-input" value="${r.project}" inputmode="decimal" oninput="calcEditTotal()" />
+        <input type="number" id="edit-project" class="field-input" value="${r.project}" inputmode="decimal" />
       </div>
       <div class="field-group">
         <label class="field-label">Massage (RM)</label>
-        <input type="number" id="edit-massage" class="field-input" value="${r.massage}" inputmode="decimal" oninput="calcEditTotal()" />
+        <input type="number" id="edit-massage" class="field-input" value="${r.massage}" inputmode="decimal" />
       </div>
     </div>
-    <div class="field-group">
-      <label class="field-label">Product (RM)</label>
-      <input type="number" id="edit-product" class="field-input" value="${r.product}" inputmode="decimal" oninput="calcEditTotal()" />
+    <div class="amount-row">
+      <div class="field-group">
+        <label class="field-label">Product (RM)</label>
+        <input type="number" id="edit-product" class="field-input" value="${r.product}" inputmode="decimal" />
+      </div>
+      <div class="field-group">
+        <label class="field-label">Total Sales (RM)</label>
+        <input type="number" id="edit-total" class="field-input" value="${r.amountCollected}" inputmode="decimal" />
+      </div>
     </div>
-    <div class="total-preview">
-      <span class="total-preview-label">Total Sales</span>
-      <span class="total-preview-val" id="edit-total-preview">${formatRM(r.totalSales)}</span>
-    </div>
-    <div class="field-group">
-      <label class="field-label">Total Sales (RM) — auto or override</label>
-      <input type="number" id="edit-total" class="field-input" value="${r.totalSales}" inputmode="decimal" oninput="overrideEditTotal()" />
-    </div>
+
     <div class="field-group">
       <label class="field-label">Remarks</label>
       <textarea id="edit-remarks" class="field-input">${r.remarks || ''}</textarea>
@@ -180,19 +179,7 @@ function openEditRecord(recordId) {
   openModal('modal-edit');
 }
 
-function calcEditTotal() {
-  const p  = parseFloat(document.getElementById('edit-project')?.value) || 0;
-  const m  = parseFloat(document.getElementById('edit-massage')?.value) || 0;
-  const pr = parseFloat(document.getElementById('edit-product')?.value) || 0;
-  const total = p + m + pr;
-  document.getElementById('edit-total').value = total.toFixed(2);
-  document.getElementById('edit-total-preview').textContent = formatRM(total);
-}
 
-function overrideEditTotal() {
-  const val = parseFloat(document.getElementById('edit-total')?.value) || 0;
-  document.getElementById('edit-total-preview').textContent = formatRM(val);
-}
 
 async function saveEditRecord() {
   if (!_editingRecord || !APP.user) return;
@@ -208,7 +195,7 @@ async function saveEditRecord() {
     project:     parseFloat(document.getElementById('edit-project').value) || 0,
     massage:     parseFloat(document.getElementById('edit-massage').value) || 0,
     product:     parseFloat(document.getElementById('edit-product').value) || 0,
-    totalSales:  parseFloat(document.getElementById('edit-total').value) || 0,
+    amountCollected: parseFloat(document.getElementById('edit-total').value) || 0,
     remarks:     document.getElementById('edit-remarks').value.trim(),
   };
   if (!payload.customerName) return showFieldError(errEl, 'Please select a customer.');
@@ -398,25 +385,24 @@ function renderAddTab(main) {
       <div class="amount-row">
         <div class="field-group">
           <label class="field-label">Project</label>
-          <input type="number" id="add-project" class="field-input" placeholder="0.00" inputmode="decimal" oninput="calcAddTotal()" />
+          <input type="number" id="add-project" class="field-input" placeholder="0.00" inputmode="decimal" />
         </div>
         <div class="field-group">
           <label class="field-label">Massage</label>
-          <input type="number" id="add-massage" class="field-input" placeholder="0.00" inputmode="decimal" oninput="calcAddTotal()" />
+          <input type="number" id="add-massage" class="field-input" placeholder="0.00" inputmode="decimal" />
         </div>
       </div>
-      <div class="field-group">
-        <label class="field-label">Product</label>
-        <input type="number" id="add-product" class="field-input" placeholder="0.00" inputmode="decimal" oninput="calcAddTotal()" />
+      <div class="amount-row">
+        <div class="field-group">
+          <label class="field-label">Product</label>
+          <input type="number" id="add-product" class="field-input" placeholder="0.00" inputmode="decimal" />
+        </div>
+        <div class="field-group">
+          <label class="field-label">Total Sales (RM)</label>
+          <input type="number" id="add-total" class="field-input" placeholder="0.00" inputmode="decimal" />
+        </div>
       </div>
-      <div class="total-preview">
-        <span class="total-preview-label">Total Sales</span>
-        <span class="total-preview-val" id="add-total-preview">RM 0.00</span>
-      </div>
-      <div class="field-group">
-        <label class="field-label">Total Sales (RM) — auto or override</label>
-        <input type="number" id="add-total" class="field-input" placeholder="0.00" inputmode="decimal" oninput="overrideAddTotal()" />
-      </div>
+
       <hr class="divider" />
       <div class="field-group">
         <label class="field-label">Remarks</label>
@@ -427,19 +413,7 @@ function renderAddTab(main) {
     </div>`;
 }
 
-function calcAddTotal() {
-  const p  = parseFloat(document.getElementById('add-project')?.value) || 0;
-  const m  = parseFloat(document.getElementById('add-massage')?.value) || 0;
-  const pr = parseFloat(document.getElementById('add-product')?.value) || 0;
-  const total = p + m + pr;
-  document.getElementById('add-total').value = total.toFixed(2);
-  document.getElementById('add-total-preview').textContent = formatRM(total);
-}
 
-function overrideAddTotal() {
-  const val = parseFloat(document.getElementById('add-total')?.value) || 0;
-  document.getElementById('add-total-preview').textContent = formatRM(val);
-}
 
 async function submitAddRecord() {
   if (!APP.user) return;
@@ -455,7 +429,7 @@ async function submitAddRecord() {
     project:      parseFloat(document.getElementById('add-project').value) || 0,
     massage:      parseFloat(document.getElementById('add-massage').value) || 0,
     product:      parseFloat(document.getElementById('add-product').value) || 0,
-    totalSales:   parseFloat(document.getElementById('add-total').value) || 0,
+    amountCollected: parseFloat(document.getElementById('add-total').value) || 0,
     remarks:      document.getElementById('add-remarks').value.trim(),
   };
   if (!payload.customerName) return showFieldError(errEl, 'Please select a customer.');
@@ -550,7 +524,7 @@ async function loadDashContent(month, year, staffId, todayMode) {
       return d === todayStr;
     });
   }
-  const totalSales   = records.reduce((s,r) => s + (+r.totalSales||0), 0);
+  const totalSales   = records.reduce((s,r) => s + (+r.amountCollected||0), 0);
   const totalProject = records.reduce((s,r) => s + (+r.project||0), 0);
   const totalMassage = records.reduce((s,r) => s + (+r.massage||0), 0);
   const totalProduct = records.reduce((s,r) => s + (+r.product||0), 0);
@@ -561,7 +535,7 @@ async function loadDashContent(month, year, staffId, todayMode) {
     records.forEach(r => {
       if (!byStaff[r.staffName]) byStaff[r.staffName] = { entries:0, total:0 };
       byStaff[r.staffName].entries++;
-      byStaff[r.staffName].total += (+r.totalSales||0);
+      byStaff[r.staffName].total += (+r.amountCollected||0);
     });
     const rows = Object.entries(byStaff)
       .sort((a,b) => b[1].total - a[1].total)
@@ -585,8 +559,8 @@ async function loadDashContent(month, year, staffId, todayMode) {
     <p style="font-size:var(--fs-xs);letter-spacing:0.12em;text-transform:uppercase;color:var(--silver-deep);margin-bottom:12px">${filterLabel}</p>
     <div class="summary-grid">
       <div class="summary-card full">
-        <div class="summary-num">${formatRM(totalSales)}</div>
-        <div class="summary-label">Total Sales</div>
+        <div class="summary-num">${formatRM(totalCollected)}</div>
+        <div class="summary-label">Total Collected</div>
       </div>
       <div class="summary-card"><div class="summary-num">${formatRM(totalProject)}</div><div class="summary-label">Project</div></div>
       <div class="summary-card"><div class="summary-num">${formatRM(totalMassage)}</div><div class="summary-label">Massage</div></div>

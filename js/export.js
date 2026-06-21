@@ -71,14 +71,14 @@ async function exportToExcel() {
 
   const { monthStr, staffName } = getExportTitle();
 
-  const headers = ['Date', 'Staff', 'Card No', 'Customer Name', 'Project (RM)', 'Massage (RM)', 'Product (RM)', 'Total Sales (RM)', 'Remarks'];
+  const headers = ['Date', 'Staff', 'Card No', 'Customer Name', 'Project (RM)', 'Massage (RM)', 'Product (RM)', 'Amount Collected (RM)', 'Remarks'];
   const rows = records.map(r => [
     r.date ? new Date(r.date).toLocaleDateString('en-MY') : '',
     r.staffName, r.cardNo || '', r.customerName,
     parseFloat(r.project)    || 0,
     parseFloat(r.massage)    || 0,
     parseFloat(r.product)    || 0,
-    parseFloat(r.totalSales) || 0,
+    parseFloat(r.amountCollected) || 0,
     r.remarks || ''
   ]);
 
@@ -154,7 +154,7 @@ async function exportToPDF() {
   doc.text(`Generated: ${new Date().toLocaleDateString('en-MY', { day:'2-digit', month:'short', year:'numeric' })}`, pageW - margin, 29, { align: 'right' });
 
   // ── Summary cards ──
-  const totalSales   = records.reduce((s, r) => s + (+r.totalSales || 0), 0);
+  const totalCollected = records.reduce((s, r) => s + (+r.amountCollected || 0), 0);
   const totalProject = records.reduce((s, r) => s + (+r.project || 0), 0);
   const totalMassage = records.reduce((s, r) => s + (+r.massage || 0), 0);
   const totalProduct = records.reduce((s, r) => s + (+r.product || 0), 0);
@@ -162,7 +162,7 @@ async function exportToPDF() {
   const cardY = 44;
   const cardW = (pageW - margin * 2 - 9) / 4;
   const cards = [
-    { label: 'TOTAL SALES',   val: `RM ${totalSales.toFixed(2)}` },
+    { label: 'TOTAL COLLECTED', val: `RM ${totalCollected.toFixed(2)}` },
     { label: 'PROJECT',       val: `RM ${totalProject.toFixed(2)}` },
     { label: 'MASSAGE',       val: `RM ${totalMassage.toFixed(2)}` },
     { label: 'PRODUCT',       val: `RM ${totalProduct.toFixed(2)}` },
@@ -199,7 +199,7 @@ async function exportToPDF() {
     `RM ${(+r.project || 0).toFixed(2)}`,
     `RM ${(+r.massage || 0).toFixed(2)}`,
     `RM ${(+r.product || 0).toFixed(2)}`,
-    `RM ${(+r.totalSales || 0).toFixed(2)}`,
+    `RM ${(+r.amountCollected || 0).toFixed(2)}`,
     r.remarks || ''
   ]);
 
@@ -211,7 +211,7 @@ async function exportToPDF() {
       `RM ${totalProject.toFixed(2)}`,
       `RM ${totalMassage.toFixed(2)}`,
       `RM ${totalProduct.toFixed(2)}`,
-      `RM ${totalSales.toFixed(2)}`,
+      `RM ${totalCollected.toFixed(2)}`,
       ''
     ]],
     margin: { left: margin, right: margin },

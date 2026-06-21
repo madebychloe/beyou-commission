@@ -83,15 +83,15 @@ async function exportToExcel() {
   ]);
 
   const totalsRow = ['', '', '', 'TOTAL',
-    rows.reduce((s, r) => s + r[3], 0),
     rows.reduce((s, r) => s + r[4], 0),
     rows.reduce((s, r) => s + r[5], 0),
     rows.reduce((s, r) => s + r[6], 0),
+    rows.reduce((s, r) => s + r[7], 0),
     ''
   ];
 
   const ws = XLSX.utils.aoa_to_sheet([headers, ...rows, [], totalsRow]);
-  ws['!cols'] = [{ wch:14 },{ wch:16 },{ wch:10 },{ wch:22 },{ wch:14 },{ wch:14 },{ wch:14 },{ wch:16 },{ wch:24 }];
+  ws['!cols'] = [{ wch:14 },{ wch:16 },{ wch:10 },{ wch:24 },{ wch:14 },{ wch:14 },{ wch:14 },{ wch:20 },{ wch:24 }];
 
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, monthStr.substring(0, 31));

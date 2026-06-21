@@ -74,7 +74,7 @@ async function exportToExcel() {
   const headers = ['Date', 'Staff', 'Card No', 'Customer Name', 'Project (RM)', 'Massage (RM)', 'Product (RM)', 'Amount Collected (RM)', 'Remarks'];
   const rows = records.map(r => [
     r.date ? new Date(r.date).toLocaleDateString('en-MY') : '',
-    r.staffName, r.cardNo || '', r.customerName,
+    r.staffName, r.cardNo ? String(r.cardNo).padStart(4,'0') : '', r.customerName,
     parseFloat(r.project)    || 0,
     parseFloat(r.massage)    || 0,
     parseFloat(r.product)    || 0,
@@ -195,7 +195,7 @@ async function exportToPDF() {
   const tableRows = records.map(r => [
     r.date ? new Date(r.date).toLocaleDateString('en-MY', { day:'2-digit', month:'short' }) : '',
     r.staffName || '',
-    r.cardNo ? `${r.cardNo} — ${r.customerName}` : (r.customerName || ''),
+    r.cardNo ? `${String(r.cardNo).padStart(4,'0')} — ${r.customerName}` : (r.customerName || ''),
     `RM ${(+r.project || 0).toFixed(2)}`,
     `RM ${(+r.massage || 0).toFixed(2)}`,
     `RM ${(+r.product || 0).toFixed(2)}`,

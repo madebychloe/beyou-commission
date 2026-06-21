@@ -102,7 +102,7 @@ function recordCard(r) {
     <div class="record-card ${!editable ? 'locked' : ''}" id="rc-${r.recordId}">
       ${staffBadge}
       <div class="record-top">
-        <span class="record-customer">${r.cardNo ? r.cardNo + ' — ' + r.customerName : r.customerName}</span>
+        <span class="record-customer">${r.cardNo ? String(r.cardNo).padStart(4,'0') + ' — ' + r.customerName : r.customerName}</span>
         <span class="record-date">${formatDate(r.date)}</span>
       </div>
       <div class="record-amounts">

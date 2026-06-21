@@ -521,7 +521,7 @@ async function loadDashContent(month, year, staffId, todayMode) {
       return d === todayStr;
     });
   }
-  const totalSales   = records.reduce((s,r) => s + (+r.amountCollected||0), 0);
+  const totalCollected = records.reduce((s,r) => s + (+r.amountCollected||0), 0);
   const totalProject = records.reduce((s,r) => s + (+r.project||0), 0);
   const totalMassage = records.reduce((s,r) => s + (+r.massage||0), 0);
   const totalProduct = records.reduce((s,r) => s + (+r.product||0), 0);

@@ -508,8 +508,8 @@ textarea.field-input { height: clamp(64px, 18vw, 80px); padding: var(--sp-xs) 12
 
 /* Collected amount stands out in the inline row */
 .collected-val {
-  font-weight: 700;
-  color: var(--near-black);
+  font-weight: 500;
+  color: var(--charcoal);
   font-size: var(--fs-base);
 }
 

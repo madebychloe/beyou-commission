@@ -109,13 +109,10 @@ function recordCard(r) {
         <div class="amount-item"><span class="amount-label">Project</span><span class="amount-val">${formatRM(r.project)}</span></div>
         <div class="amount-item"><span class="amount-label">Massage</span><span class="amount-val">${formatRM(r.massage)}</span></div>
         <div class="amount-item"><span class="amount-label">Product</span><span class="amount-val">${formatRM(r.product)}</span></div>
-      </div>
-      <div class="record-total">
-        <span class="total-label">Collected</span>
-        <span class="total-val">${formatRM(r.amountCollected)}</span>
+        <div class="amount-item"><span class="amount-label">Collected</span><span class="amount-val collected-val">${formatRM(r.amountCollected)}</span></div>
       </div>
       ${r.remarks ? `<div class="record-remarks">${r.remarks}</div>` : ''}
-      <div class="record-actions">${editBtn}${deleteBtn}${lockBadge}</div>
+      <div class="record-actions">${editBtn}${deleteBtn}${lockBadge}<span style="flex:1"></span></div>
     </div>`;
 }
 

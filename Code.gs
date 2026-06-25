@@ -79,7 +79,7 @@ function setupRecordsSheet() {
   let sheet = ss.getSheetByName(SHEETS.RECORDS);
   if (!sheet) {
     sheet = ss.insertSheet(SHEETS.RECORDS);
-    sheet.appendRow(['RecordID', 'StaffID', 'StaffName', 'Date', 'CustomerID', 'CardNo', 'CustomerName', 'Project', 'Massage', 'Product', 'TotalSales', 'Remarks', 'CreatedAt', 'UpdatedAt']);
+    sheet.appendRow(['RecordID', 'StaffID', 'StaffName', 'Date', 'CustomerID', 'CardNo', 'CustomerName', 'Project', 'Massage', 'Product', 'AmountCollected', 'Ekoin', 'Remarks', 'CreatedAt', 'UpdatedAt']);
     Logger.log('Records sheet created');
   } else {
     Logger.log('Records sheet already exists — skipped to preserve data');
@@ -167,18 +167,18 @@ function handleChangePassword(data) {
 // RECORDS
 // ============================================================
 function handleAddRecord(data) {
-  const { staffId, staffName, date, customerId, cardNo, customerName, project, massage, product, totalSales, remarks } = data;
+  const { staffId, staffName, date, customerId, cardNo, customerName, project, massage, product, amountCollected, ekoin, remarks } = data;
   const sheet = ss.getSheetByName(SHEETS.RECORDS);
   const recordId = 'REC' + Date.now();
   const now = new Date().toISOString();
   sheet.appendRow([recordId, staffId, staffName, date, customerId || '', cardNo || '', customerName,
-    project || 0, massage || 0, product || 0, totalSales || 0, remarks || '', now, now]);
+    project || 0, massage || 0, product || 0, amountCollected || 0, ekoin || 0, remarks || '', now, now]);
   logAudit(staffId, staffName, 'ADD_RECORD', '', 'Customer: ' + customerName);
   return respond(true, 'Record added', { recordId });
 }
 
 function handleUpdateRecord(data) {
-  const { recordId, staffId, role, date, customerName, project, massage, product, totalSales, remarks } = data;
+  const { recordId, staffId, role, date, customerName, project, massage, product, amountCollected, ekoin, remarks } = data;
   if (!canEditRecord(date, role)) return respond(false, 'This record is locked and cannot be edited');
   const sheet = ss.getSheetByName(SHEETS.RECORDS);
   const rows = sheet.getDataRange().getValues();
@@ -192,9 +192,10 @@ function handleUpdateRecord(data) {
       sheet.getRange(i + 1, 8).setValue(project || 0);
       sheet.getRange(i + 1, 9).setValue(massage || 0);
       sheet.getRange(i + 1, 10).setValue(product || 0);
-      sheet.getRange(i + 1, 11).setValue(totalSales || 0);
-      sheet.getRange(i + 1, 12).setValue(remarks || '');
-      sheet.getRange(i + 1, 14).setValue(new Date().toISOString());
+      sheet.getRange(i + 1, 11).setValue(amountCollected || 0);
+      sheet.getRange(i + 1, 12).setValue(data.ekoin || 0);
+      sheet.getRange(i + 1, 13).setValue(remarks || '');
+      sheet.getRange(i + 1, 15).setValue(new Date().toISOString());
       logAudit(staffId, '', 'UPDATE_RECORD', '', 'RecordID: ' + recordId);
       return respond(true, 'Record updated');
     }
@@ -207,12 +208,16 @@ function handleGetRecords(data) {
   const sheet = ss.getSheetByName(SHEETS.RECORDS);
   const rows = sheet.getDataRange().getValues();
   const records = [];
+  const tz = Session.getScriptTimeZone();
   for (let i = 1; i < rows.length; i++) {
     const row = rows[i];
     if (row[1] !== staffId) continue;
     if (month && year) {
-      const d = new Date(row[3]);
-      if (d.getMonth() + 1 !== parseInt(month) || d.getFullYear() !== parseInt(year)) continue;
+      if (!row[3]) continue;
+      const d = (row[3] instanceof Date) ? row[3] : new Date(row[3]);
+      const dateStr = Utilities.formatDate(d, tz, 'yyyy-MM-dd');
+      const parts = dateStr.split('-');
+      if (parseInt(parts[1]) !== parseInt(month) || parseInt(parts[0]) !== parseInt(year)) continue;
     }
     records.push(rowToRecord(row));
   }
@@ -225,12 +230,16 @@ function handleGetAllRecords(data) {
   const sheet = ss.getSheetByName(SHEETS.RECORDS);
   const rows = sheet.getDataRange().getValues();
   const records = [];
+  const tz2 = Session.getScriptTimeZone();
   for (let i = 1; i < rows.length; i++) {
     const row = rows[i];
     if (filterStaffId && row[1] !== filterStaffId) continue;
     if (month && year) {
-      const d = new Date(row[3]);
-      if (d.getMonth() + 1 !== parseInt(month) || d.getFullYear() !== parseInt(year)) continue;
+      if (!row[3]) continue;
+      const d = (row[3] instanceof Date) ? row[3] : new Date(row[3]);
+      const dateStr = Utilities.formatDate(d, tz2, 'yyyy-MM-dd');
+      const parts = dateStr.split('-');
+      if (parseInt(parts[1]) !== parseInt(month) || parseInt(parts[0]) !== parseInt(year)) continue;
     }
     records.push(rowToRecord(row));
   }
@@ -420,28 +429,41 @@ function handleDeleteRecord(data) {
 // ============================================================
 function canEditRecord(dateStr, role) {
   if (role === 'admin') return true;
+  const tz = Session.getScriptTimeZone();
   const now = new Date();
-  const recordDate = new Date(dateStr);
-  const today = now.getDate();
-  const thisMonth = now.getMonth();
-  const thisYear = now.getFullYear();
-  if (recordDate.getMonth() === thisMonth && recordDate.getFullYear() === thisYear) return true;
-  const prevMonth = thisMonth === 0 ? 11 : thisMonth - 1;
-  const prevYear = thisMonth === 0 ? thisYear - 1 : thisYear;
-  if (recordDate.getMonth() === prevMonth && recordDate.getFullYear() === prevYear && today < 7) return true;
+  const nowStr = Utilities.formatDate(now, tz, 'yyyy-MM-dd');
+  const nowParts = nowStr.split('-');
+  const thisYear  = parseInt(nowParts[0]);
+  const thisMonth = parseInt(nowParts[1]);
+  const today     = parseInt(nowParts[2]);
+
+  let recStr = '';
+  try {
+    const d = (dateStr instanceof Date) ? dateStr : new Date(dateStr);
+    recStr = Utilities.formatDate(d, tz, 'yyyy-MM-dd');
+  } catch(e) { return false; }
+  const recParts = recStr.split('-');
+  const recYear  = parseInt(recParts[0]);
+  const recMonth = parseInt(recParts[1]);
+
+  if (recMonth === thisMonth && recYear === thisYear) return true;
+  const prevMonth = thisMonth === 1 ? 12 : thisMonth - 1;
+  const prevYear  = thisMonth === 1 ? thisYear - 1 : thisYear;
+  if (recMonth === prevMonth && recYear === prevYear && today < 7) return true;
   return false;
 }
 
 function rowToRecord(row) {
-  // Format date as YYYY-MM-DD string — Sheets returns Date objects
+  // Use Utilities.formatDate for reliable local timezone date formatting
   let dateStr = '';
   if (row[3]) {
-    const d = new Date(row[3]);
-    if (!isNaN(d)) {
-      dateStr = d.getFullYear() + '-' +
-        String(d.getMonth() + 1).padStart(2, '0') + '-' +
-        String(d.getDate()).padStart(2, '0');
-    } else {
+    try {
+      const d = (row[3] instanceof Date) ? row[3] : new Date(row[3]);
+      if (!isNaN(d.getTime())) {
+        const tz = Session.getScriptTimeZone();
+        dateStr = Utilities.formatDate(d, tz, 'yyyy-MM-dd');
+      }
+    } catch(e) {
       dateStr = String(row[3]).split('T')[0];
     }
   }
@@ -449,8 +471,8 @@ function rowToRecord(row) {
     recordId: row[0], staffId: row[1], staffName: row[2],
     date: dateStr, customerId: row[4], cardNo: row[5], customerName: row[6],
     project: row[7], massage: row[8], product: row[9],
-    totalSales: row[10], remarks: row[11],
-    createdAt: row[12], updatedAt: row[13]
+    amountCollected: row[10], ekoin: row[11], remarks: row[12],
+    createdAt: row[13], updatedAt: row[14]
   };
 }
 
@@ -469,6 +491,19 @@ function logAudit(staffId, name, action, deviceInfo, details) {
 // ============================================================
 // ONE-TIME REPAIR — Run once to fix CustomerIDs
 // ============================================================
+function renameColumns() {
+  // One-time: rename TotalSales -> AmountCollected in Records sheet header
+  const sheet = ss.getSheetByName(SHEETS.RECORDS);
+  if (!sheet) return;
+  const headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+  for (let i = 0; i < headers.length; i++) {
+    if (String(headers[i]).trim() === 'TotalSales') {
+      sheet.getRange(1, i + 1).setValue('AmountCollected');
+      Logger.log('Renamed column ' + (i+1) + ' to AmountCollected');
+    }
+  }
+}
+
 function repairCardNos() {
   // Forces CardNo column to text format and pads all values to 4 digits
   const sheet = ss.getSheetByName(SHEETS.CUSTOMERS);

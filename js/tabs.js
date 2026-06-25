@@ -54,12 +54,23 @@ async function renderRecordsTab(main) {
       <select id="filter-month" onchange="onFilterChange()">${buildMonthOptions(selMonth, selYear)}</select>
       ${staffFilterHtml}
     </div>
+    <div class="filter-bar" style="margin-top:-4px">
+      <input type="date" id="filter-from" class="date-filter" placeholder="From" onchange="onFilterChange()" />
+      <input type="date" id="filter-to" class="date-filter" placeholder="To" onchange="onFilterChange()" />
+      <button class="btn btn-ghost btn-sm" onclick="clearDateRange()" style="flex-shrink:0">✕ Clear</button>
+    </div>
     <div class="export-bar">
       <button class="btn btn-ghost btn-sm" onclick="exportToExcel()">⬇ Excel</button>
       <button class="btn btn-ghost btn-sm" onclick="exportToPDF()">⬇ PDF</button>
     </div>
     <div id="records-list" class="${viewMode==='table'?'records-table-wrap':'records-list'}"></div>
   `;
+
+  window.clearDateRange = () => {
+    document.getElementById('filter-from').value = '';
+    document.getElementById('filter-to').value = '';
+    onFilterChange();
+  };
 
   window.setViewMode = (mode) => {
     viewMode = mode;
@@ -72,14 +83,56 @@ async function renderRecordsTab(main) {
   };
 
   window.onFilterChange = () => {
-    const mv = document.getElementById('filter-month')?.value;
-    if (mv) { const [m,y] = mv.split('-'); selMonth=+m; selYear=+y; }
-    else { selMonth=null; selYear=null; }
+    const fromVal = document.getElementById('filter-from')?.value || '';
+    const toVal   = document.getElementById('filter-to')?.value || '';
     staffFilterId = document.getElementById('filter-staff')?.value || '';
-    loadRecordsList(selMonth, selYear, staffFilterId);
+    if (fromVal && toVal) {
+      // Date range overrides month filter
+      loadRecordsListByRange(fromVal, toVal, staffFilterId);
+    } else {
+      const mv = document.getElementById('filter-month')?.value;
+      if (mv) { const [m,y] = mv.split('-'); selMonth=+m; selYear=+y; }
+      else { selMonth=null; selYear=null; }
+      loadRecordsList(selMonth, selYear, staffFilterId);
+    }
   };
 
   loadRecordsList(selMonth, selYear, staffFilterId);
+}
+
+async function loadRecordsListByRange(fromDate, toDate, staffFilterId) {
+  if (!APP.user) return;
+  const listEl = document.getElementById('records-list');
+  if (!listEl) return;
+  listEl.innerHTML = '<div class="loading"><span class="spinner"></span>Loading…</div>';
+
+  // Fetch all records (no month filter) then filter client-side by date range
+  let res;
+  if (APP.user.role === 'admin') {
+    res = await apiGetAllRecords(APP.user.role, staffFilterId, null, null);
+  } else {
+    res = await apiGetRecords(APP.user.staffId, null, null);
+  }
+  if (!res.success) { listEl.innerHTML = `<p class="error-msg">${res.message}</p>`; return; }
+
+  const from = new Date(fromDate);
+  const to   = new Date(toDate);
+  to.setHours(23, 59, 59); // include full end day
+
+  const records = (res.records || []).filter(r => {
+    if (!r.date) return false;
+    const d = new Date(r.date);
+    return d >= from && d <= to;
+  });
+
+  APP.recordsCache = records;
+
+  if (!records.length) {
+    listEl.innerHTML = '<div class="empty-state"><div class="empty-icon">📋</div><p class="empty-text">No records found for this date range.</p></div>';
+    return;
+  }
+  const viewMode = sessionStorage.getItem('beyou_view') || 'card';
+  renderRecordsList(records, viewMode);
 }
 
 async function loadRecordsList(month, year, staffFilterId) {
@@ -124,7 +177,7 @@ function renderRecordsList(records, mode) {
         <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
       </svg>
     </button>` : '';
-      const delBtn   = editable ? `<button class="tbl-btn tbl-del" onclick="confirmDeleteRecord('${r.recordId}')">🗑</button>` : '';
+      const delBtn   = editable ? `<button class="tbl-btn tbl-del" onclick="confirmDeleteRecord('${r.recordId}')" title="Delete"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg></button>` : '';
       const lock     = !editable ? '🔒' : '';
       return `<tr class="${!editable?'tbl-locked':''}">
         <td>${formatDate(r.date)}</td>
@@ -175,7 +228,8 @@ function recordCard(r) {
       <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
       <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
     </svg>Edit</button>` : '';
-  const deleteBtn = editable ? `<button class="btn btn-danger btn-sm" onclick="confirmDeleteRecord('${r.recordId}')">Delete</button>` : '';
+  const deleteBtn = editable ? `<button class="btn btn-danger btn-sm" onclick="confirmDeleteRecord('${r.recordId}')" title="Delete">
+    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="margin-right:4px;vertical-align:middle"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>Delete</button>` : '';
   const staffBadge = APP.user.role === 'admin' ? `<span class="staff-badge">${r.staffName}</span><br>` : '';
 
   return `
@@ -570,34 +624,60 @@ async function renderDashboardTab(main) {
   main.innerHTML = `
     <div class="page-header"><h2 class="page-title">Dashboard</h2></div>
     <div class="dash-filter-row">
-      <button id="today-btn" class="btn btn-ghost btn-sm" onclick="onDashFilterChange(true)">Today</button>
-      <select id="dash-month" onchange="onDashFilterChange(false)">${buildMonthOptions(selMonth, selYear)}</select>
+      <button id="today-btn" class="btn btn-ghost btn-sm" onclick="onDashFilterChange('today')">Today</button>
+      <select id="dash-month" onchange="onDashFilterChange('month')">${buildMonthOptions(selMonth, selYear)}</select>
       ${staffFilterHtml}
+    </div>
+    <div class="filter-bar" style="margin-top:-4px">
+      <input type="date" id="dash-from" class="date-filter" onchange="onDashFilterChange('range')" />
+      <input type="date" id="dash-to" class="date-filter" onchange="onDashFilterChange('range')" />
+      <button class="btn btn-ghost btn-sm" onclick="clearDashRange()" style="flex-shrink:0">✕ Clear</button>
     </div>
     <div id="dash-content"></div>`;
 
-  window.onDashFilterChange = (isToday) => {
-    if (isToday) {
+  window.clearDashRange = () => {
+    document.getElementById('dash-from').value = '';
+    document.getElementById('dash-to').value = '';
+    document.getElementById('today-btn').classList.remove('active-filter');
+    selMonth = month; selYear = year;
+    document.getElementById('dash-month').value = `${month}-${year}`;
+    loadDashContent(selMonth, selYear, selStaff, false, null, null);
+  };
+
+  window.onDashFilterChange = (mode) => {
+    selStaff = document.getElementById('dash-staff')?.value || '';
+    if (mode === 'today') {
       todayMode = true;
       document.getElementById('today-btn').classList.add('active-filter');
       document.getElementById('dash-month').value = '';
-      // Pass null month/year so backend returns all records — today filter applied client-side
-      loadDashContent(null, null, document.getElementById('dash-staff')?.value || '', true);
+      document.getElementById('dash-from').value = '';
+      document.getElementById('dash-to').value = '';
+      loadDashContent(null, null, selStaff, true, null, null);
+    } else if (mode === 'range') {
+      const fromVal = document.getElementById('dash-from')?.value || '';
+      const toVal   = document.getElementById('dash-to')?.value || '';
+      if (fromVal && toVal) {
+        todayMode = false;
+        document.getElementById('today-btn').classList.remove('active-filter');
+        document.getElementById('dash-month').value = '';
+        loadDashContent(null, null, selStaff, false, fromVal, toVal);
+      }
     } else {
       todayMode = false;
       document.getElementById('today-btn').classList.remove('active-filter');
+      document.getElementById('dash-from').value = '';
+      document.getElementById('dash-to').value = '';
       const mv = document.getElementById('dash-month')?.value;
       if (mv) { const [m,y] = mv.split('-'); selMonth=+m; selYear=+y; }
       else { selMonth=null; selYear=null; }
-      selStaff = document.getElementById('dash-staff')?.value || '';
-      loadDashContent(selMonth, selYear, selStaff, false);
+      loadDashContent(selMonth, selYear, selStaff, false, null, null);
     }
   };
 
-  loadDashContent(selMonth, selYear, selStaff, false);
+  loadDashContent(selMonth, selYear, selStaff, false, null, null);
 }
 
-async function loadDashContent(month, year, staffId, todayMode) {
+async function loadDashContent(month, year, staffId, todayMode, fromDate, toDate) {
   if (!APP.user) return;
   const dashEl = document.getElementById('dash-content');
   if (!dashEl) return;
@@ -613,17 +693,24 @@ async function loadDashContent(month, year, staffId, todayMode) {
 
   let records = res.records || [];
 
-  // Today filter — applied client-side
+  // Today filter
   if (todayMode) {
     const now = new Date();
     const todayStr = now.getFullYear() + '-' +
       String(now.getMonth() + 1).padStart(2, '0') + '-' +
       String(now.getDate()).padStart(2, '0');
+    records = records.filter(r => r.date && String(r.date).substring(0, 10) === todayStr);
+  }
+
+  // Date range filter
+  if (fromDate && toDate) {
+    const from = new Date(fromDate);
+    const to   = new Date(toDate);
+    to.setHours(23, 59, 59);
     records = records.filter(r => {
       if (!r.date) return false;
-      // Normalize — handle both YYYY-MM-DD and Date strings
-      const d = String(r.date).substring(0, 10);
-      return d === todayStr;
+      const d = new Date(r.date);
+      return d >= from && d <= to;
     });
   }
   const totalCollected  = records.reduce((s,r) => s + (+r.amountCollected||0), 0);
@@ -657,7 +744,9 @@ async function loadDashContent(month, year, staffId, todayMode) {
 
   const filterLabel = todayMode
     ? `Today — ${new Date().toLocaleDateString('en-MY', {day:'2-digit', month:'short', year:'numeric'})}`
-    : (month && year ? monthLabel(month, year) : 'All Time');
+    : (fromDate && toDate
+      ? `${new Date(fromDate).toLocaleDateString('en-MY', {day:'2-digit', month:'short'})} — ${new Date(toDate).toLocaleDateString('en-MY', {day:'2-digit', month:'short', year:'numeric'})}`
+      : (month && year ? monthLabel(month, year) : 'All Time'));
 
   dashEl.innerHTML = `
     <p style="font-size:var(--fs-xs);letter-spacing:0.12em;text-transform:uppercase;color:var(--silver-deep);margin-bottom:12px">${filterLabel}</p>

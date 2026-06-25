@@ -118,7 +118,12 @@ function renderRecordsList(records, mode) {
     const isAdmin = APP.user.role === 'admin';
     const rows = records.map(r => {
       const editable = isEditable(r.date);
-      const editBtn  = editable ? `<button class="tbl-btn tbl-edit" onclick="openEditRecord('${r.recordId}')">✏</button>` : '';
+      const editBtn  = editable ? `<button class="tbl-btn tbl-edit" onclick="openEditRecord('${r.recordId}')" title="Edit">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+        <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+      </svg>
+    </button>` : '';
       const delBtn   = editable ? `<button class="tbl-btn tbl-del" onclick="confirmDeleteRecord('${r.recordId}')">🗑</button>` : '';
       const lock     = !editable ? '🔒' : '';
       return `<tr class="${!editable?'tbl-locked':''}">
@@ -129,7 +134,7 @@ function renderRecordsList(records, mode) {
         <td class="num">${+r.project>0?formatRM(r.project):''}</td>
         <td class="num">${+r.massage>0?formatRM(r.massage):''}</td>
         <td class="num">${+r.product>0?formatRM(r.product):''}</td>
-        <td class="num bold">${+r.amountCollected>0?formatRM(r.amountCollected):''}</td>
+        <td class="num">${+r.amountCollected>0?formatRM(r.amountCollected):''}</td>
         <td class="num">${+r.ekoin>0?formatRM(r.ekoin):''}</td>
         <td class="num">${+r.injection>0?formatRM(r.injection):''}</td>
         <td class="rmk">${r.remarks||''}</td>
@@ -165,7 +170,11 @@ function recordCard(r) {
   if (!APP.user) return '';
   const editable = isEditable(r.date);
   const lockBadge = !editable ? '<span class="lock-badge">🔒 Locked</span>' : '';
-  const editBtn = editable ? `<button class="btn btn-ghost btn-sm" onclick="openEditRecord('${r.recordId}')">Edit</button>` : '';
+  const editBtn = editable ? `<button class="btn btn-ghost btn-sm" onclick="openEditRecord('${r.recordId}')">
+    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="margin-right:4px;vertical-align:middle">
+      <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+      <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+    </svg>Edit</button>` : '';
   const deleteBtn = editable ? `<button class="btn btn-danger btn-sm" onclick="confirmDeleteRecord('${r.recordId}')">Delete</button>` : '';
   const staffBadge = APP.user.role === 'admin' ? `<span class="staff-badge">${r.staffName}</span><br>` : '';
 

@@ -40,8 +40,16 @@ async function renderRecordsTab(main) {
         ${APP.staffList.map(s => `<option value="${s.staffId}">${s.name}</option>`).join('')}
       </select>` : '';
 
+  let viewMode = sessionStorage.getItem('beyou_view') || 'card';
+
   main.innerHTML = `
-    <div class="page-header"><h2 class="page-title">Records</h2></div>
+    <div class="page-header" style="display:flex;justify-content:space-between;align-items:flex-end">
+      <h2 class="page-title">Records</h2>
+      <div class="view-toggle">
+        <button id="btn-card-view" class="view-btn ${viewMode==='card'?'active':''}" onclick="setViewMode('card')">⊞</button>
+        <button id="btn-table-view" class="view-btn ${viewMode==='table'?'active':''}" onclick="setViewMode('table')">☰</button>
+      </div>
+    </div>
     <div class="filter-bar">
       <select id="filter-month" onchange="onFilterChange()">${buildMonthOptions(selMonth, selYear)}</select>
       ${staffFilterHtml}
@@ -50,8 +58,18 @@ async function renderRecordsTab(main) {
       <button class="btn btn-ghost btn-sm" onclick="exportToExcel()">⬇ Excel</button>
       <button class="btn btn-ghost btn-sm" onclick="exportToPDF()">⬇ PDF</button>
     </div>
-    <div id="records-list" class="records-list"></div>
+    <div id="records-list" class="${viewMode==='table'?'records-table-wrap':'records-list'}"></div>
   `;
+
+  window.setViewMode = (mode) => {
+    viewMode = mode;
+    sessionStorage.setItem('beyou_view', mode);
+    document.getElementById('btn-card-view').classList.toggle('active', mode==='card');
+    document.getElementById('btn-table-view').classList.toggle('active', mode==='table');
+    const listEl = document.getElementById('records-list');
+    listEl.className = mode==='table' ? 'records-table-wrap' : 'records-list';
+    renderRecordsList(APP.recordsCache, mode);
+  };
 
   window.onFilterChange = () => {
     const mv = document.getElementById('filter-month')?.value;
@@ -87,7 +105,60 @@ async function loadRecordsList(month, year, staffFilterId) {
     listEl.innerHTML = '<div class="empty-state"><div class="empty-icon">📋</div><p class="empty-text">No records found for this period.</p></div>';
     return;
   }
-  listEl.innerHTML = records.map(r => recordCard(r)).join('');
+  const viewMode = sessionStorage.getItem('beyou_view') || 'card';
+  renderRecordsList(records, viewMode);
+}
+
+function renderRecordsList(records, mode) {
+  const listEl = document.getElementById('records-list');
+  if (!listEl) return;
+  if (!records || !records.length) return;
+
+  if (mode === 'table') {
+    const isAdmin = APP.user.role === 'admin';
+    const rows = records.map(r => {
+      const editable = isEditable(r.date);
+      const editBtn  = editable ? `<button class="tbl-btn tbl-edit" onclick="openEditRecord('${r.recordId}')">✏</button>` : '';
+      const delBtn   = editable ? `<button class="tbl-btn tbl-del" onclick="confirmDeleteRecord('${r.recordId}')">🗑</button>` : '';
+      const lock     = !editable ? '🔒' : '';
+      return `<tr class="${!editable?'tbl-locked':''}">
+        <td>${formatDate(r.date)}</td>
+        ${isAdmin ? `<td>${r.staffName}</td>` : ''}
+        <td>${r.cardNo ? String(r.cardNo).padStart(4,'0') : ''}</td>
+        <td>${r.customerName}</td>
+        <td class="num">${+r.project>0?formatRM(r.project):''}</td>
+        <td class="num">${+r.massage>0?formatRM(r.massage):''}</td>
+        <td class="num">${+r.product>0?formatRM(r.product):''}</td>
+        <td class="num bold">${+r.amountCollected>0?formatRM(r.amountCollected):''}</td>
+        <td class="num">${+r.ekoin>0?formatRM(r.ekoin):''}</td>
+        <td class="num">${+r.injection>0?formatRM(r.injection):''}</td>
+        <td class="rmk">${r.remarks||''}</td>
+        <td class="acts">${editBtn}${delBtn}${lock}</td>
+      </tr>`;
+    }).join('');
+
+    const adminHead = isAdmin ? '<th>Staff</th>' : '';
+    listEl.innerHTML = `
+      <table class="records-table">
+        <thead><tr>
+          <th>Date</th>
+          ${adminHead}
+          <th>Card</th>
+          <th>Customer</th>
+          <th class="num">Project</th>
+          <th class="num">Massage</th>
+          <th class="num">Product</th>
+          <th class="num">Total Sales</th>
+          <th class="num">依克多因</th>
+          <th class="num">针剂</th>
+          <th>Remarks</th>
+          <th></th>
+        </tr></thead>
+        <tbody>${rows}</tbody>
+      </table>`;
+  } else {
+    listEl.innerHTML = records.map(r => recordCard(r)).join('');
+  }
 }
 
 function recordCard(r) {
@@ -103,7 +174,6 @@ function recordCard(r) {
       ${staffBadge}
       <div class="record-top">
         <span class="record-customer">${r.cardNo ? String(r.cardNo).padStart(4,'0') + ' — ' + r.customerName : r.customerName}</span>
-        <span class="record-date">${formatDate(r.date)}</span>
       </div>
       <div class="record-amounts">
         ${+r.project > 0 ? `<div class="amount-item"><span class="amount-label">Project</span><span class="amount-val">${formatRM(r.project)}</span></div>` : ''}

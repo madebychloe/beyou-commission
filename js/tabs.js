@@ -256,7 +256,10 @@ function recordCard(r) {
       ${staffBadge}
       <div class="record-top">
         <span class="record-customer">${r.cardNo ? String(r.cardNo).padStart(4,'0') + ' — ' + r.customerName : r.customerName}</span>
-        <span class="record-date">${formatDate(r.date)}</span>
+        <div class="record-top-right">
+          <span class="record-date">${formatDate(r.date)}</span>
+          <div class="record-actions-inline">${editBtn}${deleteBtn}${lockBadge}</div>
+        </div>
       </div>
       <div class="record-amounts">
         ${+r.project > 0 ? `<div class="amount-item"><span class="amount-label">Project</span><span class="amount-val">${formatRM(r.project)}</span></div>` : ''}
@@ -267,7 +270,6 @@ function recordCard(r) {
         ${+r.injection > 0 ? `<div class="amount-item"><span class="amount-label">针剂</span><span class="amount-val">${formatRM(r.injection)}</span></div>` : ''}
       </div>
       ${r.remarks ? `<div class="record-remarks">${r.remarks}</div>` : ''}
-      <div class="record-actions-right">${editBtn}${deleteBtn}${lockBadge}</div>
     </div>`;
 }
 

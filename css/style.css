@@ -696,3 +696,12 @@ textarea.field-input { height: clamp(64px, 18vw, 80px); padding: var(--sp-xs) 12
   gap: 4px;
   align-items: center;
 }
+
+/* ─── RECORD TOP SINGLE ROW ───────────────────── */
+.record-top-right-inline {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+  margin-left: 8px;
+}

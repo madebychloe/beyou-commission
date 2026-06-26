@@ -630,3 +630,14 @@ textarea.field-input { height: clamp(64px, 18vw, 80px); padding: var(--sp-xs) 12
   gap: var(--sp-xs);
   margin-top: var(--sp-xs);
 }
+
+/* ─── TABLE TOTALS ROW ────────────────────────── */
+.tbl-total-row td {
+  padding: 9px 10px;
+  background: var(--near-black);
+  color: var(--white);
+  border-bottom: none;
+  font-size: var(--fs-xs);
+  white-space: nowrap;
+}
+.tbl-total-row td.num { text-align: right; font-weight: 600; }

@@ -264,9 +264,9 @@ function recordCard(r) {
       ${staffBadge}
       <div class="record-top">
         <span class="record-customer">${r.cardNo ? String(r.cardNo).padStart(4,'0') + ' — ' + r.customerName : r.customerName}</span>
-        <div class="record-top-right">
+        <div class="record-top-right-inline">
           <span class="record-date">${formatDate(r.date)}</span>
-          <div class="record-actions-inline">${editBtnIcon}${deleteBtnIcon}${lockBadge}</div>
+          ${editBtnIcon}${deleteBtnIcon}${lockBadge}
         </div>
       </div>
       <div class="record-amounts">

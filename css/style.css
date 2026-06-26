@@ -589,9 +589,23 @@ textarea.field-input { height: clamp(64px, 18vw, 80px); padding: var(--sp-xs) 12
 .tbl-del  { background: #f5e0de; color: var(--danger); margin-left: 4px; }
 
 /* ─── DATE RANGE FILTER ───────────────────────── */
-.date-filter {
+.date-filter-wrap {
   flex: 1;
-  min-width: 120px;
+  min-width: 110px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.date-filter-label {
+  font-size: 9px;
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--silver-deep);
+  padding-left: 2px;
+}
+.date-filter {
+  width: 100%;
   height: clamp(36px, 10vw, 42px);
   padding: 0 10px;
   border: 1px solid var(--silver);
@@ -603,3 +617,12 @@ textarea.field-input { height: clamp(64px, 18vw, 80px); padding: var(--sp-xs) 12
   appearance: none;
 }
 .date-filter:focus { border-color: var(--near-black); outline: none; }
+
+/* ─── RECORD CARD ACTIONS RIGHT-ALIGNED ──────── */
+.record-actions-right {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: var(--sp-xs);
+  margin-top: var(--sp-xs);
+}

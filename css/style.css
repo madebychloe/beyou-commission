@@ -641,3 +641,18 @@ textarea.field-input { height: clamp(64px, 18vw, 80px); padding: var(--sp-xs) 12
   white-space: nowrap;
 }
 .tbl-total-row td.num { text-align: right; font-weight: 600; }
+
+/* ─── RECORD CARD TOP RIGHT ───────────────────── */
+.record-top-right {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 5px;
+  flex-shrink: 0;
+  margin-left: 8px;
+}
+.record-actions-inline {
+  display: flex;
+  gap: var(--sp-xs);
+  align-items: center;
+}

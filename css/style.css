@@ -589,25 +589,11 @@ textarea.field-input { height: clamp(64px, 18vw, 80px); padding: var(--sp-xs) 12
 .tbl-del  { background: #f5e0de; color: var(--danger); margin-left: 4px; }
 
 /* ─── DATE RANGE FILTER ───────────────────────── */
-.date-filter-wrap {
+.date-filter-inline {
   flex: 1;
-  min-width: 110px;
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-}
-.date-filter-label {
-  font-size: 9px;
-  font-weight: 500;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: var(--silver-deep);
-  padding-left: 2px;
-}
-.date-filter {
-  width: 100%;
+  min-width: 100px;
   height: clamp(36px, 10vw, 42px);
-  padding: 0 10px;
+  padding: 0 8px;
   border: 1px solid var(--silver);
   border-radius: var(--radius-sm);
   font-family: var(--font-body);
@@ -616,7 +602,25 @@ textarea.field-input { height: clamp(64px, 18vw, 80px); padding: var(--sp-xs) 12
   background: var(--white);
   appearance: none;
 }
-.date-filter:focus { border-color: var(--near-black); outline: none; }
+.date-filter-inline:focus { border-color: var(--near-black); outline: none; }
+
+.btn-clear-date {
+  width: clamp(32px, 9vw, 38px);
+  height: clamp(36px, 10vw, 42px);
+  border: 1px solid var(--silver);
+  border-radius: var(--radius-sm);
+  background: var(--white);
+  color: var(--silver-deep);
+  font-size: 13px;
+  cursor: pointer;
+  flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  transition: all 0.15s;
+}
+.btn-clear-date:hover { border-color: var(--near-black); color: var(--near-black); }
+.btn-clear-date:active { background: var(--light-grey); }
+
+.today-btn { flex-shrink: 0; }
 
 /* ─── RECORD CARD ACTIONS RIGHT-ALIGNED ──────── */
 .record-actions-right {

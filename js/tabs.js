@@ -194,6 +194,15 @@ function renderRecordsList(records, mode) {
     }).join('');
 
     const adminHead = isAdmin ? '<th>Staff</th>' : '';
+    // Totals
+    const tProject   = records.reduce((s,r) => s + (+r.project||0), 0);
+    const tMassage   = records.reduce((s,r) => s + (+r.massage||0), 0);
+    const tProduct   = records.reduce((s,r) => s + (+r.product||0), 0);
+    const tCollected = records.reduce((s,r) => s + (+r.amountCollected||0), 0);
+    const tEkoin     = records.reduce((s,r) => s + (+r.ekoin||0), 0);
+    const tInject    = records.reduce((s,r) => s + (+r.injection||0), 0);
+    const adminTotalCol = isAdmin ? '<td></td>' : '';
+
     listEl.innerHTML = `
       <table class="records-table">
         <thead><tr>
@@ -211,6 +220,18 @@ function renderRecordsList(records, mode) {
           <th></th>
         </tr></thead>
         <tbody>${rows}</tbody>
+        <tfoot>
+          <tr class="tbl-total-row">
+            <td colspan="${isAdmin ? 4 : 3}" style="font-weight:600;letter-spacing:0.08em;font-size:9px;text-transform:uppercase">TOTAL</td>
+            <td class="num">${tProject>0?formatRM(tProject):''}</td>
+            <td class="num">${tMassage>0?formatRM(tMassage):''}</td>
+            <td class="num">${tProduct>0?formatRM(tProduct):''}</td>
+            <td class="num">${tCollected>0?formatRM(tCollected):''}</td>
+            <td class="num">${tEkoin>0?formatRM(tEkoin):''}</td>
+            <td class="num">${tInject>0?formatRM(tInject):''}</td>
+            <td></td><td></td>
+          </tr>
+        </tfoot>
       </table>`;
   } else {
     listEl.innerHTML = records.map(r => recordCard(r)).join('');

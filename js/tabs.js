@@ -55,9 +55,15 @@ async function renderRecordsTab(main) {
       ${staffFilterHtml}
     </div>
     <div class="filter-bar" style="margin-top:-4px">
-      <input type="date" id="filter-from" class="date-filter" placeholder="From" onchange="onFilterChange()" />
-      <input type="date" id="filter-to" class="date-filter" placeholder="To" onchange="onFilterChange()" />
-      <button class="btn btn-ghost btn-sm" onclick="clearDateRange()" style="flex-shrink:0">✕ Clear</button>
+      <div class="date-filter-wrap">
+        <label class="date-filter-label">From</label>
+        <input type="date" id="filter-from" class="date-filter" onchange="onFilterChange()" />
+      </div>
+      <div class="date-filter-wrap">
+        <label class="date-filter-label">To</label>
+        <input type="date" id="filter-to" class="date-filter" onchange="onFilterChange()" />
+      </div>
+      <button class="btn btn-ghost btn-sm" onclick="clearDateRange()" style="flex-shrink:0">✕</button>
     </div>
     <div class="export-bar">
       <button class="btn btn-ghost btn-sm" onclick="exportToExcel()">⬇ Excel</button>
@@ -237,6 +243,7 @@ function recordCard(r) {
       ${staffBadge}
       <div class="record-top">
         <span class="record-customer">${r.cardNo ? String(r.cardNo).padStart(4,'0') + ' — ' + r.customerName : r.customerName}</span>
+        <span class="record-date">${formatDate(r.date)}</span>
       </div>
       <div class="record-amounts">
         ${+r.project > 0 ? `<div class="amount-item"><span class="amount-label">Project</span><span class="amount-val">${formatRM(r.project)}</span></div>` : ''}
@@ -247,7 +254,7 @@ function recordCard(r) {
         ${+r.injection > 0 ? `<div class="amount-item"><span class="amount-label">针剂</span><span class="amount-val">${formatRM(r.injection)}</span></div>` : ''}
       </div>
       ${r.remarks ? `<div class="record-remarks">${r.remarks}</div>` : ''}
-      <div class="record-actions">${editBtn}${deleteBtn}${lockBadge}<span style="flex:1"></span></div>
+      <div class="record-actions-right">${editBtn}${deleteBtn}${lockBadge}</div>
     </div>`;
 }
 
@@ -629,9 +636,15 @@ async function renderDashboardTab(main) {
       ${staffFilterHtml}
     </div>
     <div class="filter-bar" style="margin-top:-4px">
-      <input type="date" id="dash-from" class="date-filter" onchange="onDashFilterChange('range')" />
-      <input type="date" id="dash-to" class="date-filter" onchange="onDashFilterChange('range')" />
-      <button class="btn btn-ghost btn-sm" onclick="clearDashRange()" style="flex-shrink:0">✕ Clear</button>
+      <div class="date-filter-wrap">
+        <label class="date-filter-label">From</label>
+        <input type="date" id="dash-from" class="date-filter" onchange="onDashFilterChange('range')" />
+      </div>
+      <div class="date-filter-wrap">
+        <label class="date-filter-label">To</label>
+        <input type="date" id="dash-to" class="date-filter" onchange="onDashFilterChange('range')" />
+      </div>
+      <button class="btn btn-ghost btn-sm" onclick="clearDashRange()" style="flex-shrink:0">✕</button>
     </div>
     <div id="dash-content"></div>`;
 

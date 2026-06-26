@@ -656,3 +656,43 @@ textarea.field-input { height: clamp(64px, 18vw, 80px); padding: var(--sp-xs) 12
   gap: var(--sp-xs);
   align-items: center;
 }
+
+/* ─── CARD ICON BUTTONS ───────────────────────── */
+.card-icon-btn {
+  width: 28px; height: 28px;
+  border: 1px solid var(--silver);
+  border-radius: var(--radius-sm);
+  background: var(--white);
+  color: var(--charcoal);
+  cursor: pointer;
+  display: inline-flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+  transition: all 0.15s;
+}
+.card-icon-btn:active { opacity: 0.7; }
+.card-icon-del {
+  border-color: #e0b0ad;
+  background: #fdf0ef;
+  color: var(--danger);
+}
+
+/* Fix record-top to vertically center everything */
+.record-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--sp-xs);
+}
+.record-top-right {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+  flex-shrink: 0;
+  margin-left: 8px;
+}
+.record-actions-inline {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+}

@@ -51,19 +51,11 @@ async function renderRecordsTab(main) {
       </div>
     </div>
     <div class="filter-bar">
-      <select id="filter-month" onchange="onFilterChange()">${buildMonthOptions(selMonth, selYear)}</select>
+      <select id="filter-month" onchange="onFilterChange()" style="min-width:110px">${buildMonthOptions(selMonth, selYear)}</select>
+      <input type="date" id="filter-from" class="date-filter-inline" onchange="onFilterChange()" title="From date" />
+      <input type="date" id="filter-to" class="date-filter-inline" onchange="onFilterChange()" title="To date" />
+      <button class="btn-clear-date" onclick="clearDateRange()" title="Clear dates">✕</button>
       ${staffFilterHtml}
-    </div>
-    <div class="filter-bar" style="margin-top:-4px">
-      <div class="date-filter-wrap">
-        <label class="date-filter-label">From</label>
-        <input type="date" id="filter-from" class="date-filter" onchange="onFilterChange()" />
-      </div>
-      <div class="date-filter-wrap">
-        <label class="date-filter-label">To</label>
-        <input type="date" id="filter-to" class="date-filter" onchange="onFilterChange()" />
-      </div>
-      <button class="btn btn-ghost btn-sm" onclick="clearDateRange()" style="flex-shrink:0">✕</button>
     </div>
     <div class="export-bar">
       <button class="btn btn-ghost btn-sm" onclick="exportToExcel()">⬇ Excel</button>
@@ -630,21 +622,13 @@ async function renderDashboardTab(main) {
 
   main.innerHTML = `
     <div class="page-header"><h2 class="page-title">Dashboard</h2></div>
-    <div class="dash-filter-row">
-      <button id="today-btn" class="btn btn-ghost btn-sm" onclick="onDashFilterChange('today')">Today</button>
-      <select id="dash-month" onchange="onDashFilterChange('month')">${buildMonthOptions(selMonth, selYear)}</select>
+    <div class="filter-bar">
+      <button id="today-btn" class="btn btn-ghost btn-sm today-btn" onclick="onDashFilterChange('today')">Today</button>
+      <select id="dash-month" onchange="onDashFilterChange('month')" style="min-width:100px">${buildMonthOptions(selMonth, selYear)}</select>
+      <input type="date" id="dash-from" class="date-filter-inline" onchange="onDashFilterChange('range')" title="From date" />
+      <input type="date" id="dash-to" class="date-filter-inline" onchange="onDashFilterChange('range')" title="To date" />
+      <button class="btn-clear-date" onclick="clearDashRange()" title="Clear dates">✕</button>
       ${staffFilterHtml}
-    </div>
-    <div class="filter-bar" style="margin-top:-4px">
-      <div class="date-filter-wrap">
-        <label class="date-filter-label">From</label>
-        <input type="date" id="dash-from" class="date-filter" onchange="onDashFilterChange('range')" />
-      </div>
-      <div class="date-filter-wrap">
-        <label class="date-filter-label">To</label>
-        <input type="date" id="dash-to" class="date-filter" onchange="onDashFilterChange('range')" />
-      </div>
-      <button class="btn btn-ghost btn-sm" onclick="clearDashRange()" style="flex-shrink:0">✕</button>
     </div>
     <div id="dash-content"></div>`;
 

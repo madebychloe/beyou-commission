@@ -416,6 +416,7 @@ textarea.field-input { height: clamp(64px, 18vw, 80px); padding: var(--sp-xs) 12
 .section-gap { margin-top: var(--sp-lg); }
 .loading { text-align: center; padding: var(--sp-xl); color: var(--silver-deep); font-size: var(--fs-xs); letter-spacing: 0.1em; text-transform: uppercase; }
 .spinner { display: inline-block; width: 14px; height: 14px; border: 1.5px solid var(--light-grey); border-top-color: var(--charcoal); border-radius: 50%; animation: spin 0.7s linear infinite; margin-right: 8px; vertical-align: middle; }
+.spinner-light { display: inline-block; width: 14px; height: 14px; border: 1.5px solid rgba(255,255,255,0.35); border-top-color: var(--white); border-radius: 50%; animation: spin 0.7s linear infinite; margin-right: 8px; vertical-align: middle; }
 @keyframes spin { to { transform: rotate(360deg); } }
 ::-webkit-scrollbar { width: 3px; }
 ::-webkit-scrollbar-track { background: transparent; }

@@ -505,7 +505,7 @@ async function showAddCustomerForm(prefix) {
       <label class="field-label">Phone (optional)</label>
       <input type="tel" id="nc-phone" class="field-input" placeholder="e.g. 0123456789" autocomplete="off" />
     </div>
-    <button class="btn btn-primary btn-full" onclick="submitNewCustomer('${prefix}')">ADD CUSTOMER</button>
+    <button id="nc-submit-btn" class="btn btn-primary btn-full" onclick="submitNewCustomer('${prefix}')">ADD CUSTOMER</button>
     <p id="nc-error" class="error-msg hidden"></p>
   `;
   openModal('modal-edit');
@@ -527,8 +527,25 @@ async function submitNewCustomer(prefix) {
 
   errEl.classList.add('hidden');
 
-  const res = await apiAddCustomer(name, cardNo, phone, APP.user.staffId, APP.user.name);
-  if (!res.success) return showFieldError(errEl, res.message);
+  const btn = document.getElementById('nc-submit-btn');
+  const btnOriginalText = btn ? btn.innerHTML : '';
+  if (btn) {
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-light"></span> Adding…';
+  }
+
+  let res;
+  try {
+    res = await apiAddCustomer(name, cardNo, phone, APP.user.staffId, APP.user.name);
+  } catch (e) {
+    if (btn) { btn.disabled = false; btn.innerHTML = btnOriginalText; }
+    return showFieldError(errEl, 'Network error — please try again.');
+  }
+
+  if (!res.success) {
+    if (btn) { btn.disabled = false; btn.innerHTML = btnOriginalText; }
+    return showFieldError(errEl, res.message);
+  }
 
   // Add to local cache immediately
   const newCus = { customerId: res.customerId, cardNo, name, phone };

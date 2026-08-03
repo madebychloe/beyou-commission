@@ -408,6 +408,23 @@ async function confirmDeleteRecord(recordId) {
 // ═══════════════════════════════════════════════
 // CUSTOMER SEARCH HELPERS
 // ═══════════════════════════════════════════════
+let _cusRefreshInFlight = false;
+async function refreshCustomersInBackground() {
+  if (_cusRefreshInFlight) return;
+  _cusRefreshInFlight = true;
+  try {
+    const res = await apiGetCustomers();
+    if (res.success && res.customers) {
+      APP.customers = res.customers;
+      sessionStorage.setItem('beyou_customers', JSON.stringify(APP.customers));
+    }
+  } catch (e) {
+    // Fail silently — keep using whatever is already cached
+  } finally {
+    _cusRefreshInFlight = false;
+  }
+}
+
 function filterCustomers(prefix) {
   const q = document.getElementById(`${prefix}-customer-search`).value.toLowerCase().trim();
   const dropdown = document.getElementById(`${prefix}-customer-dropdown`);
@@ -519,11 +536,20 @@ async function submitNewCustomer(prefix) {
   APP.customers.sort((a, b) => +a.cardNo - +b.cardNo);
   sessionStorage.setItem('beyou_customers', JSON.stringify(APP.customers));
 
-  // Auto-select in form
-  selectCustomer(prefix, res.customerId, cardNo, name);
+  // Auto-select in form — only for record forms, which have these fields.
+  // The Customers tab (prefix 'admin') has no such fields; calling this there
+  // threw and silently aborted the rest of the function (no toast, modal stuck open).
+  if (prefix !== 'admin' && document.getElementById(`${prefix}-customer-search`)) {
+    selectCustomer(prefix, res.customerId, cardNo, name);
+  }
 
   showToast(`${name} added!`, 'success');
   closeModal('modal-edit');
+
+  // If we added from the Customers tab, refresh that list in place
+  if (prefix === 'admin' && document.getElementById('cus-list')) {
+    filterCustomerList();
+  }
 }
 
 // ═══════════════════════════════════════════════
@@ -531,6 +557,11 @@ async function submitNewCustomer(prefix) {
 // ═══════════════════════════════════════════════
 function renderAddTab(main) {
   const today = new Date().toISOString().split('T')[0];
+
+  // Silent background refresh — catches customers added by another staff
+  // login/device since this session's cache was loaded, without blocking the UI.
+  refreshCustomersInBackground();
+
   main.innerHTML = `
     <div class="page-header">
       <h2 class="page-title">Add Record</h2>

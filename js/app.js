@@ -7,8 +7,30 @@ let APP = {
   currentTab: 'records',
   staffList: [],
   recordsCache: [],
-  customers: [],      // cached customer list, loaded on login
+  customers: [],         // customer list (cached in localStorage, revalidated often)
+  pendingCustomers: [],  // customers added in THIS session that the server list may not contain yet
+  customersLoaded: false,
+  customersError: false,
 };
+
+// ─── Small helpers ───────────────────────────────
+// Escape anything user-typed before it goes into innerHTML / attributes.
+function esc(v) {
+  return String(v == null ? '' : v)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+// YYYY-MM-DD in the device's LOCAL time (toISOString() is UTC and gives
+// yesterday's date before 8am in Singapore/Malaysia).
+function localDateStr(d) {
+  d = d || new Date();
+  const p = n => String(n).padStart(2, '0');
+  return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate());
+}
 
 // ─── Init ────────────────────────────────────────
 window.addEventListener('DOMContentLoaded', () => {
@@ -119,11 +141,13 @@ async function handleChangePin() {
 function handleLogout() {
   if (!confirm('Sign out?')) return;
   sessionStorage.removeItem('beyou_session');
-  sessionStorage.removeItem('beyou_customers');
+  clearCustomerCache();
   APP.user = null;
   APP.staffList = [];
   APP.recordsCache = [];
   APP.customers = [];
+  APP.pendingCustomers = [];
+  APP.customersLoaded = false;
   document.getElementById('login-pin').value = '';
   showScreen('screen-login');
 }
@@ -154,25 +178,103 @@ function startApp() {
   }
 
   showScreen('screen-app');
-  loadCustomers().then(() => switchTab('records'));
+  // Show cached customers instantly, never wait on the network to open the app,
+  // then revalidate quietly in the background.
+  loadCustomersFromCache();
+  switchTab('records');
+  refreshCustomers(true);
 }
 
-async function loadCustomers() {
-  // Try sessionStorage first
-  const cached = sessionStorage.getItem('beyou_customers');
-  if (cached) {
-    try {
-      APP.customers = JSON.parse(cached);
-      return;
-    } catch(e) {}
-  }
-  // Fetch from API
-  const res = await apiGetCustomers();
-  if (res.success && res.customers) {
-    APP.customers = res.customers;
-    sessionStorage.setItem('beyou_customers', JSON.stringify(APP.customers));
-  }
+// ─── Customer cache (localStorage, stale-while-revalidate) ───────────
+// Only id / card no / name are persisted — phone numbers are never written to
+// the browser cache. They are fetched fresh by the admin Customers tab.
+const CUS_CACHE_KEY = 'beyou_customers_v2';
+let _cusInflight = 0;
+let _cusPromise = null;
+let _cusLastOk = 0;
+
+function sortCustomers(list) {
+  return list.sort((a, b) => (parseInt(a.cardNo, 10) || 0) - (parseInt(b.cardNo, 10) || 0));
 }
+
+function persistCustomers() {
+  try {
+    const slim = APP.customers.map(c => ({ customerId: c.customerId, cardNo: c.cardNo, name: c.name }));
+    localStorage.setItem(CUS_CACHE_KEY, JSON.stringify({ t: Date.now(), list: slim }));
+  } catch (e) { /* storage full / blocked — app still works from memory */ }
+}
+
+function loadCustomersFromCache() {
+  try {
+    sessionStorage.removeItem('beyou_customers'); // key used by the previous version
+    const raw = localStorage.getItem(CUS_CACHE_KEY);
+    if (!raw) return false;
+    const parsed = JSON.parse(raw);
+    if (parsed && Array.isArray(parsed.list)) {
+      APP.customers = sortCustomers(parsed.list);
+      return true;
+    }
+  } catch (e) {}
+  return false;
+}
+
+function clearCustomerCache() {
+  try {
+    localStorage.removeItem(CUS_CACHE_KEY);
+    sessionStorage.removeItem('beyou_customers');
+  } catch (e) {}
+}
+
+// Server list + any customer added in this session that the server list does
+// not contain yet. This is what stops a slow, older response from erasing a
+// customer that was just created.
+function mergeCustomers(serverList) {
+  const ids   = new Set(serverList.map(c => c.customerId));
+  const cards = new Set(serverList.map(c => String(c.cardNo)));
+  APP.pendingCustomers = APP.pendingCustomers.filter(p => !ids.has(p.customerId) && !cards.has(String(p.cardNo)));
+  return sortCustomers([...serverList, ...APP.pendingCustomers]);
+}
+
+function customersRefreshing() { return _cusInflight > 0; }
+
+// force=false: reuse an in-flight request, and skip if refreshed < 15s ago.
+// force=true : always fetch (waits for any in-flight request first, so the
+//              answer is at least as new as the moment of the call).
+function refreshCustomers(force) {
+  if (!force) {
+    if (_cusPromise) return _cusPromise;
+    if (APP.customersLoaded && Date.now() - _cusLastOk < 15000) return Promise.resolve(true);
+  }
+  const prev = _cusPromise;
+  _cusInflight++;
+  const p = (async () => {
+    if (prev) { try { await prev; } catch (e) {} }
+    try {
+      const res = await apiGetCustomers();
+      if (res && res.success && Array.isArray(res.customers)) {
+        APP.customers = mergeCustomers(res.customers);
+        APP.customersLoaded = true;
+        APP.customersError = false;
+        _cusLastOk = Date.now();
+        persistCustomers();
+        return true;
+      }
+    } catch (e) { /* fall through */ }
+    APP.customersError = true;
+    return false;
+  })().finally(() => {
+    _cusInflight--;
+    if (_cusPromise === p) _cusPromise = null;
+    if (typeof onCustomersUpdated === 'function') onCustomersUpdated();
+  });
+  _cusPromise = p;
+  return p;
+}
+
+// Coming back to the app (e.g. phone unlocked) → pick up customers added elsewhere.
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible' && APP.user) refreshCustomers(false);
+});
 
 // ─── Screen ───────────────────────────────────────
 function showScreen(id) {

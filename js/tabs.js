@@ -37,7 +37,7 @@ async function renderRecordsTab(main) {
   const staffFilterHtml = APP.user.role === 'admin'
     ? `<select id="filter-staff" onchange="onFilterChange()">
         <option value="">All Staff</option>
-        ${APP.staffList.map(s => `<option value="${s.staffId}">${s.name}</option>`).join('')}
+        ${APP.staffList.map(s => `<option value="${esc(s.staffId)}">${esc(s.name)}</option>`).join('')}
       </select>` : '';
 
   let viewMode = sessionStorage.getItem('beyou_view') || 'card';
@@ -179,16 +179,16 @@ function renderRecordsList(records, mode) {
       const lock     = !editable ? '🔒' : '';
       return `<tr class="${!editable?'tbl-locked':''}">
         <td>${formatDate(r.date)}</td>
-        ${isAdmin ? `<td>${r.staffName}</td>` : ''}
+        ${isAdmin ? `<td>${esc(r.staffName)}</td>` : ''}
         <td>${r.cardNo ? String(r.cardNo).padStart(4,'0') : ''}</td>
-        <td>${r.customerName}</td>
+        <td>${esc(r.customerName)}</td>
         <td class="num">${+r.project>0?formatRM(r.project):''}</td>
         <td class="num">${+r.massage>0?formatRM(r.massage):''}</td>
         <td class="num">${+r.product>0?formatRM(r.product):''}</td>
         <td class="num">${+r.amountCollected>0?formatRM(r.amountCollected):''}</td>
         <td class="num">${+r.ekoin>0?formatRM(r.ekoin):''}</td>
         <td class="num">${+r.injection>0?formatRM(r.injection):''}</td>
-        <td class="rmk">${r.remarks||''}</td>
+        <td class="rmk">${esc(r.remarks)}</td>
         <td class="acts">${editBtn}${delBtn}${lock}</td>
       </tr>`;
     }).join('');
@@ -257,7 +257,7 @@ function recordCard(r) {
   const deleteBtnIcon = editable ? `<button class="card-icon-btn card-icon-del" onclick="confirmDeleteRecord('${r.recordId}')" title="Delete">
     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
     </button>` : '';
-  const staffBadge = APP.user.role === 'admin' ? `<span class="staff-badge">${r.staffName}</span><br>` : '';
+  const staffBadge = APP.user.role === 'admin' ? `<span class="staff-badge">${esc(r.staffName)}</span><br>` : '';
 
   return `
     <div class="record-card ${!editable ? 'locked' : ''}" id="rc-${r.recordId}">
@@ -277,7 +277,7 @@ function recordCard(r) {
         ${+r.ekoin > 0 ? `<div class="amount-item"><span class="amount-label">依克多因</span><span class="amount-val">${formatRM(r.ekoin)}</span></div>` : ''}
         ${+r.injection > 0 ? `<div class="amount-item"><span class="amount-label">针剂</span><span class="amount-val">${formatRM(r.injection)}</span></div>` : ''}
       </div>
-      ${r.remarks ? `<div class="record-remarks">${r.remarks}</div>` : ''}
+      ${r.remarks ? `<div class="record-remarks">${esc(r.remarks)}</div>` : ''}
     </div>`;
 }
 
@@ -289,6 +289,7 @@ function openEditRecord(recordId) {
   const r = APP.recordsCache.find(x => x.recordId === recordId);
   if (!r) { showToast('Record not found', 'error'); return; }
   _editingRecord = r;
+  refreshCustomers(false); // quiet revalidation so a just-added customer is searchable
 
   const dateVal = r.date ? String(r.date).split('T')[0] : '';
   document.getElementById('modal-edit-title').textContent = 'Edit Record';
@@ -301,12 +302,12 @@ function openEditRecord(recordId) {
       <label class="field-label">Customer (Card No — Name)</label>
       <div class="customer-search-wrap" id="edit-cus-wrap">
         <input type="text" id="edit-customer-search" class="field-input"
-          value="${r.cardNo ? r.cardNo + ' — ' + r.customerName : r.customerName}"
+          value="${esc(r.cardNo ? r.cardNo + ' — ' + r.customerName : r.customerName)}"
           oninput="filterCustomers('edit')" onfocus="showCustomerDropdown('edit')" autocomplete="off" />
         <div id="edit-customer-dropdown" class="cus-dropdown hidden"></div>
-        <input type="hidden" id="edit-customer-id" value="${r.customerId || ''}" />
-        <input type="hidden" id="edit-customer-cardno" value="${r.cardNo || ''}" />
-        <input type="hidden" id="edit-customer-name" value="${r.customerName}" />
+        <input type="hidden" id="edit-customer-id" value="${esc(r.customerId || '')}" />
+        <input type="hidden" id="edit-customer-cardno" value="${esc(r.cardNo || '')}" />
+        <input type="hidden" id="edit-customer-name" value="${esc(r.customerName)}" />
       </div>
       <button class="btn btn-ghost btn-sm" style="margin-top:6px;width:100%" onclick="showAddCustomerForm('edit')">+ New Customer</button>
     </div>
@@ -343,7 +344,7 @@ function openEditRecord(recordId) {
 
     <div class="field-group">
       <label class="field-label">Remarks</label>
-      <textarea id="edit-remarks" class="field-input">${r.remarks || ''}</textarea>
+      <textarea id="edit-remarks" class="field-input">${esc(r.remarks)}</textarea>
     </div>
     <button class="btn btn-primary btn-full" onclick="saveEditRecord()">SAVE CHANGES</button>
     <p id="edit-error" class="error-msg hidden"></p>
@@ -408,62 +409,79 @@ async function confirmDeleteRecord(recordId) {
 // ═══════════════════════════════════════════════
 // CUSTOMER SEARCH HELPERS
 // ═══════════════════════════════════════════════
-let _cusRefreshInFlight = false;
-async function refreshCustomersInBackground() {
-  if (_cusRefreshInFlight) return;
-  _cusRefreshInFlight = true;
-  try {
-    const res = await apiGetCustomers();
-    if (res.success && res.customers) {
-      APP.customers = res.customers;
-      sessionStorage.setItem('beyou_customers', JSON.stringify(APP.customers));
-    }
-  } catch (e) {
-    // Fail silently — keep using whatever is already cached
-  } finally {
-    _cusRefreshInFlight = false;
-  }
-}
-
-function filterCustomers(prefix) {
-  const q = document.getElementById(`${prefix}-customer-search`).value.toLowerCase().trim();
+// Re-draw the dropdown from APP.customers WITHOUT touching the current
+// selection (used when a background refresh lands while the user is typing).
+function renderCustomerDropdown(prefix) {
+  const input    = document.getElementById(`${prefix}-customer-search`);
   const dropdown = document.getElementById(`${prefix}-customer-dropdown`);
+  if (!input || !dropdown) return;
 
-  // Clear selection if user is editing
-  document.getElementById(`${prefix}-customer-id`).value = '';
-  document.getElementById(`${prefix}-customer-cardno`).value = '';
-  document.getElementById(`${prefix}-customer-name`).value = '';
-
+  const q = input.value.toLowerCase().trim();
   if (!q) { dropdown.classList.add('hidden'); return; }
 
   const matches = APP.customers.filter(c =>
-    c.name.toLowerCase().includes(q) ||
+    String(c.name).toLowerCase().includes(q) ||
     String(c.cardNo).includes(q)
   ).slice(0, 10); // max 10 results
 
   if (!matches.length) {
-    dropdown.innerHTML = `<div class="cus-option cus-no-result">No customer found — tap "+ New Customer"</div>`;
+    if (customersRefreshing()) {
+      dropdown.innerHTML = `<div class="cus-option cus-no-result"><span class="spinner"></span>${APP.customers.length ? 'Checking for new customers…' : 'Loading customers…'}</div>`;
+    } else if (!APP.customers.length && APP.customersError) {
+      dropdown.innerHTML = `<div class="cus-option cus-no-result">Could not load customers. Check your connection.</div>
+        <div class="cus-option" style="text-align:center;cursor:pointer;font-weight:600" onclick="manualRefreshCustomers()">↻ Try again</div>`;
+    } else {
+      dropdown.innerHTML = `<div class="cus-option cus-no-result">No customer found — tap "+ New Customer"</div>
+        <div class="cus-option" style="text-align:center;cursor:pointer;font-weight:600" onclick="manualRefreshCustomers()">↻ Refresh customer list</div>`;
+    }
     dropdown.classList.remove('hidden');
     return;
   }
 
   dropdown.innerHTML = matches.map(c => `
     <div class="cus-option"
-      data-id="${c.customerId}"
-      data-cardno="${c.cardNo}"
-      data-name="${c.name.replace(/"/g, '&quot;')}"
+      data-id="${esc(c.customerId)}"
+      data-cardno="${esc(c.cardNo)}"
+      data-name="${esc(c.name)}"
       data-prefix="${prefix}"
       onclick="selectCustomerFromEl(this)">
-      <span class="cus-cardno">${String(c.cardNo).padStart(4,'0')}</span>
-      <span class="cus-name">${c.name}</span>
-      ${c.phone ? `<span class="cus-phone">${c.phone}</span>` : ''}
+      <span class="cus-cardno">${esc(String(c.cardNo).padStart(4,'0'))}</span>
+      <span class="cus-name">${esc(c.name)}</span>
     </div>`).join('');
   dropdown.classList.remove('hidden');
 }
 
+function filterCustomers(prefix) {
+  // The user is typing → any earlier selection is no longer valid
+  document.getElementById(`${prefix}-customer-id`).value = '';
+  document.getElementById(`${prefix}-customer-cardno`).value = '';
+  document.getElementById(`${prefix}-customer-name`).value = '';
+  renderCustomerDropdown(prefix);
+}
+
 function showCustomerDropdown(prefix) {
   const q = document.getElementById(`${prefix}-customer-search`).value;
-  if (q.length > 0) filterCustomers(prefix);
+  if (q.length > 0) renderCustomerDropdown(prefix);
+}
+
+async function manualRefreshCustomers() {
+  const p = refreshCustomers(true);
+  onCustomersUpdated();   // shows "Checking for new customers…" straight away
+  await p;
+}
+
+// Called by refreshCustomers() whenever a fetch finishes (or starts a forced one).
+function onCustomersUpdated() {
+  ['add', 'edit'].forEach(prefix => {
+    const input = document.getElementById(`${prefix}-customer-search`);
+    const idEl  = document.getElementById(`${prefix}-customer-id`);
+    const dd    = document.getElementById(`${prefix}-customer-dropdown`);
+    // Only re-draw if the user is mid-search (no customer chosen yet, dropdown open)
+    if (input && idEl && dd && !idEl.value && input.value.trim() && !dd.classList.contains('hidden')) {
+      renderCustomerDropdown(prefix);
+    }
+  });
+  if (APP.currentTab === 'customers' && document.getElementById('cus-list')) renderCustomerList();
 }
 
 function selectCustomerFromEl(el) {
@@ -547,11 +565,13 @@ async function submitNewCustomer(prefix) {
     return showFieldError(errEl, res.message);
   }
 
-  // Add to local cache immediately
+  // Add to local cache immediately. Also remember it as "pending" so an older,
+  // slower refresh response can't wipe it before the server list includes it.
   const newCus = { customerId: res.customerId, cardNo, name, phone };
   APP.customers.push(newCus);
-  APP.customers.sort((a, b) => +a.cardNo - +b.cardNo);
-  sessionStorage.setItem('beyou_customers', JSON.stringify(APP.customers));
+  APP.pendingCustomers.push(newCus);
+  sortCustomers(APP.customers);
+  persistCustomers();
 
   // Auto-select in form — only for record forms, which have these fields.
   // The Customers tab (prefix 'admin') has no such fields; calling this there
@@ -565,7 +585,7 @@ async function submitNewCustomer(prefix) {
 
   // If we added from the Customers tab, refresh that list in place
   if (prefix === 'admin' && document.getElementById('cus-list')) {
-    filterCustomerList();
+    renderCustomerList();
   }
 }
 
@@ -573,11 +593,11 @@ async function submitNewCustomer(prefix) {
 // ADD TAB
 // ═══════════════════════════════════════════════
 function renderAddTab(main) {
-  const today = new Date().toISOString().split('T')[0];
+  const today = localDateStr();
 
-  // Silent background refresh — catches customers added by another staff
-  // login/device since this session's cache was loaded, without blocking the UI.
-  refreshCustomersInBackground();
+  // Silent background revalidation — catches customers added by other staff /
+  // devices since the cache was last refreshed, without blocking the form.
+  refreshCustomers(false);
 
   main.innerHTML = `
     <div class="page-header">
@@ -696,7 +716,7 @@ async function renderDashboardTab(main) {
   const staffFilterHtml = APP.user.role === 'admin'
     ? `<select id="dash-staff" onchange="onDashFilterChange(false)">
         <option value="">All Staff</option>
-        ${APP.staffList.map(s => `<option value="${s.staffId}">${s.name}</option>`).join('')}
+        ${APP.staffList.map(s => `<option value="${esc(s.staffId)}">${esc(s.name)}</option>`).join('')}
       </select>` : '';
 
   main.innerHTML = `
@@ -863,7 +883,7 @@ async function loadAdminStaffList() {
   listEl.innerHTML = res.staff.map(s => `
     <div class="admin-staff-card">
       <div class="admin-staff-info">
-        <div class="staff-name">${s.name} ${s.role==='admin'?'👑':''}</div>
+        <div class="staff-name">${esc(s.name)} ${s.role==='admin'?'👑':''}</div>
         <div class="staff-role">${s.role}${(s.mustResetPin==='TRUE'||s.mustResetPin===true)?' · ⚠ Needs reset':''}</div>
       </div>
       <div class="admin-staff-actions">
@@ -917,34 +937,48 @@ async function confirmResetPin(staffId, name) {
   else showToast(res.message, 'error');
 }
 
-async function loadAdminCustomerList(listElId) {
-  const listEl = document.getElementById(listElId || 'cus-list');
+let _cusTabLimit = 50;
+let _cusSearchTimer = null;
+
+function renderCustomerList() {
+  const listEl = document.getElementById('cus-list');
   if (!listEl) return;
-  listEl.innerHTML = '<div class="loading"><span class="spinner"></span>Loading…</div>';
+  const q = (document.getElementById('cus-search')?.value || '').toLowerCase().trim();
 
-  // Always fetch fresh for customers tab
-  const res = await apiGetCustomers();
-  if (res.success && res.customers) {
-    APP.customers = res.customers;
-    sessionStorage.setItem('beyou_customers', JSON.stringify(APP.customers));
-  }
+  const filtered = q
+    ? APP.customers.filter(c => String(c.name).toLowerCase().includes(q) || String(c.cardNo).includes(q))
+    : APP.customers;
+  const sorted = sortCustomers([...filtered]);
 
-  if (!APP.customers.length) {
-    listEl.innerHTML = '<div class="empty-state"><div class="empty-icon">🪪</div><p class="empty-text">No customers yet.</p></div>';
+  const sub = document.querySelector('#app-main .page-sub');
+  if (sub) sub.textContent = q ? `${sorted.length} of ${APP.customers.length} customers` : `${APP.customers.length} customers`;
+
+  if (!sorted.length) {
+    const msg = q ? 'No match found.' : (customersRefreshing() ? 'Loading…' : 'No customers yet.');
+    listEl.innerHTML = `<div class="empty-state"><div class="empty-icon">🪪</div><p class="empty-text">${msg}</p></div>`;
     return;
   }
-  const sorted = [...APP.customers].sort((a, b) => +a.cardNo - +b.cardNo);
-  listEl.innerHTML = sorted.map(c => `
+
+  const shown = sorted.slice(0, _cusTabLimit);
+  const left  = sorted.length - shown.length;
+  listEl.innerHTML = shown.map(c => `
     <div class="admin-staff-card">
       <div class="admin-staff-info">
-        <div class="staff-name">${String(c.cardNo).padStart(4,'0')} — ${c.name}</div>
-        <div class="staff-role">${c.phone || 'No phone'} &nbsp;·&nbsp; <span style="color:var(--silver-deep);font-size:10px">${c.customerId}</span></div>
+        <div class="staff-name">${esc(String(c.cardNo).padStart(4,'0'))} — ${esc(c.name)}</div>
+        <div class="staff-role">${c.phone === undefined ? '' : (esc(c.phone) || 'No phone') + ' &nbsp;·&nbsp; '}<span style="color:var(--silver-deep);font-size:10px">${esc(c.customerId)}</span></div>
       </div>
-    </div>`).join('');
+    </div>`).join('') +
+    (left > 0 ? `<button class="btn btn-ghost btn-sm" style="width:100%;margin-top:8px" onclick="showMoreCustomers()">Show more (${left} left)</button>` : '');
+}
+
+function showMoreCustomers() {
+  _cusTabLimit += 50;
+  renderCustomerList();
 }
 
 async function renderCustomersTab(main) {
   if (!APP.user || APP.user.role !== 'admin') { main.innerHTML = ''; return; }
+  _cusTabLimit = 50;
   main.innerHTML = `
     <div class="page-header">
       <h2 class="page-title">Customers</h2>
@@ -956,32 +990,16 @@ async function renderCustomersTab(main) {
     </div>
     <button class="btn btn-primary btn-sm" style="margin-bottom:14px;width:100%" onclick="showAddCustomerForm('admin')">+ Add Customer</button>
     <div id="cus-list" class="admin-staff-list"></div>`;
-  await loadAdminCustomerList('cus-list');
 
-  // Update subtitle with count
-  const sub = main.querySelector('.page-sub');
-  if (sub) sub.textContent = APP.customers.length + ' customers';
+  // Show what we have straight away, then refresh (fresh copy also brings phone numbers)
+  if (APP.customers.length) renderCustomerList();
+  else document.getElementById('cus-list').innerHTML = '<div class="loading"><span class="spinner"></span>Loading…</div>';
+  refreshCustomers(true);   // re-renders this list when it lands (see onCustomersUpdated)
 }
 
 window.filterCustomerList = function() {
-  const q = document.getElementById('cus-search')?.value.toLowerCase().trim() || '';
-  const listEl = document.getElementById('cus-list');
-  if (!listEl) return;
-  const filtered = q
-    ? APP.customers.filter(c => c.name.toLowerCase().includes(q) || String(c.cardNo).includes(q))
-    : APP.customers;
-  const sorted = [...filtered].sort((a, b) => +a.cardNo - +b.cardNo);
-  if (!sorted.length) {
-    listEl.innerHTML = '<div class="empty-state"><div class="empty-icon">🪪</div><p class="empty-text">No match found.</p></div>';
-    return;
-  }
-  listEl.innerHTML = sorted.map(c => `
-    <div class="admin-staff-card">
-      <div class="admin-staff-info">
-        <div class="staff-name">${String(c.cardNo).padStart(4,'0')} — ${c.name}</div>
-        <div class="staff-role">${c.phone || 'No phone'} &nbsp;·&nbsp; <span style="color:var(--silver-deep);font-size:10px">${c.customerId}</span></div>
-      </div>
-    </div>`).join('');
+  clearTimeout(_cusSearchTimer);
+  _cusSearchTimer = setTimeout(() => { _cusTabLimit = 50; renderCustomerList(); }, 150);
 };
 
 async function renderAuditLog() {
@@ -993,8 +1011,8 @@ async function renderAuditLog() {
   const rows = (res.logs||[]).map(l => `
     <tr>
       <td style="font-size:10px">${new Date(l.timestamp).toLocaleString('en-MY')}</td>
-      <td>${l.name}</td>
-      <td style="font-size:10px;color:var(--silver-deep)">${l.action}</td>
+      <td>${esc(l.name)}</td>
+      <td style="font-size:10px;color:var(--silver-deep)">${esc(l.action)}</td>
     </tr>`).join('');
   sec.innerHTML = `
     <div class="card section-gap">

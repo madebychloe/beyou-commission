@@ -208,16 +208,16 @@ async function exportToPDF() {
         ${records.map((r, i) => `
           <tr style="background:${i%2===0?'#fff':'#f8f8f8'};border-bottom:1px solid #eee">
             <td style="padding:7px 10px">${r.date ? new Date(r.date).toLocaleDateString('en-MY',{day:'2-digit',month:'short'}) : ''}</td>
-            <td style="padding:7px 10px">${r.staffName||''}</td>
+            <td style="padding:7px 10px">${esc(r.staffName)}</td>
             <td style="padding:7px 10px;text-align:center">${r.cardNo ? String(r.cardNo).padStart(4,'0') : ''}</td>
-            <td style="padding:7px 10px">${r.customerName||''}</td>
+            <td style="padding:7px 10px">${esc(r.customerName)}</td>
             <td style="padding:7px 10px;text-align:right">RM ${(+r.project||0).toFixed(2)}</td>
             <td style="padding:7px 10px;text-align:right">RM ${(+r.massage||0).toFixed(2)}</td>
             <td style="padding:7px 10px;text-align:right">RM ${(+r.product||0).toFixed(2)}</td>
             <td style="padding:7px 10px;text-align:right;font-weight:600">RM ${(+r.amountCollected||0).toFixed(2)}</td>
             <td style="padding:7px 10px;text-align:right">RM ${(+r.ekoin||0).toFixed(2)}</td>
             <td style="padding:7px 10px;text-align:right">RM ${(+r.injection||0).toFixed(2)}</td>
-            <td style="padding:7px 10px;color:#666">${r.remarks||''}</td>
+            <td style="padding:7px 10px;color:#666">${esc(r.remarks)}</td>
           </tr>`).join('')}
         <!-- Totals row -->
         <tr style="background:#f0f0f0;border-top:2px solid #1a1a1a;font-weight:700">

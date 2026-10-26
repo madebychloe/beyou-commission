@@ -376,7 +376,7 @@ async function saveEditRecord() {
   if (!payload.customerName) return showFieldError(errEl, 'Please select a customer.');
   errEl.classList.add('hidden');
   const res = await apiUpdateRecord(payload);
-  if (!res.success) return showFieldError(errEl, res.message);
+  if (!res.success) return showSaveError(errEl, res, 'Changes');
   showToast('Record updated!', 'success');
   closeModal('modal-edit');
   switchTab('records');
@@ -391,7 +391,12 @@ async function confirmDeleteRecord(recordId) {
   if (!confirm(`Delete record for "${r.customerName}"?\nThis cannot be undone.`)) return;
 
   const res = await apiDeleteRecord(recordId, APP.user.staffId, APP.user.role);
-  if (!res.success) { showToast(res.message, 'error'); return; }
+  if (!res.success) {
+    showToast(res.offline ? 'Not deleted — no internet connection. Please try again.'
+            : res.unsure  ? 'Could not confirm the delete (no reply). Refresh the Records tab to check.'
+            : res.message, 'error', 6000);
+    return;
+  }
 
   showToast('Record deleted', 'success');
   // Remove from cache and DOM instantly — no full reload needed
@@ -562,6 +567,7 @@ async function submitNewCustomer(prefix) {
 
   if (!res.success) {
     if (btn) { btn.disabled = false; btn.innerHTML = btnOriginalText; }
+    if (res.offline || res.unsure) return showSaveError(errEl, res, 'Customer');
     return showFieldError(errEl, res.message);
   }
 
@@ -693,7 +699,7 @@ async function submitAddRecord() {
   btn.disabled = true; btn.textContent = 'SAVING…';
   const res = await apiAddRecord(payload);
   btn.disabled = false; btn.textContent = 'SAVE RECORD';
-  if (!res.success) return showFieldError(errEl, res.message);
+  if (!res.success) return showSaveError(errEl, res, 'Record');
   showToast('Record saved!', 'success');
   switchTab('records');
 }
@@ -1085,6 +1091,7 @@ async function submitEditCustomer(customerId) {
   if (!res || !res.success) {
     if (btn) { btn.disabled = false; btn.innerHTML = btnText; }
     if (res && /record/i.test(res.message || '')) loadCustomerCounts();   // lock state changed → refresh badges
+    if (res && (res.offline || res.unsure)) return showSaveError(errEl, res, 'Changes');
     return showFieldError(errEl, (res && res.message) || 'Could not save. Please try again.');
   }
 

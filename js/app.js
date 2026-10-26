@@ -2,6 +2,51 @@
 // app.js — Core state, auth, navigation
 // ============================================================
 
+// ─── Network layer ───────────────────────────────
+// Replaces apiCall from api.js (API_URL still comes from api.js). Differences:
+//  • gives up after API_TIMEOUT_MS instead of hanging on a bad connection
+//  • tells the caller WHY it failed:  offline  = request never left the phone
+//                                      timedOut / unsure = server may or may not have processed it
+let API_TIMEOUT_MS = 45000;
+window.apiCall = async function (action, payload = {}) {
+  const ctl = new AbortController();
+  const timer = setTimeout(() => ctl.abort(), API_TIMEOUT_MS);
+  try {
+    const params = new URLSearchParams({ action: action, payload: JSON.stringify(payload) });
+    const res = await fetch(`${API_URL}?${params.toString()}`, { method: 'GET', redirect: 'follow', signal: ctl.signal });
+    return await res.json();
+  } catch (err) {
+    console.error('API error:', err);
+    if (err && err.name === 'AbortError') {
+      return { success: false, timedOut: true, unsure: true, message: 'No reply from the server (slow or lost connection).' };
+    }
+    if (err && err.name === 'SyntaxError') {   // server answered with something that isn't JSON
+      return { success: false, unsure: true, message: 'The server sent an unexpected reply. Please try again in a moment.' };
+    }
+    return { success: false, offline: true, message: 'Network error. Check your connection.' };
+  } finally {
+    clearTimeout(timer);
+  }
+};
+
+// Clear message for a failed save. `what` = 'Record', 'Customer', 'Changes' …
+function saveFailMessage(res, what) {
+  res = res || {};
+  if (res.offline)  return `${what} NOT saved — no internet connection. Your entries are still here. Check your connection, then tap Save again.`;
+  if (res.unsure)   return `Could not confirm that the ${what.toLowerCase()} was saved (${res.timedOut ? 'no reply from the server' : 'unexpected reply'}). Check the Records tab before saving again, to avoid a duplicate.`;
+  return res.message || `${what} not saved. Please try again.`;
+}
+
+// Inline message under the button + a toast (the inline one is easy to miss on a phone).
+function showSaveError(errEl, res, what) {
+  const msg = saveFailMessage(res, what);
+  if (errEl) {
+    showFieldError(errEl, msg);
+    if (errEl.scrollIntoView) errEl.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  }
+  showToast(msg, 'error', 7000);
+}
+
 let APP = {
   user: null,
   currentTab: 'records',
@@ -297,12 +342,12 @@ document.addEventListener('click', e => {
 
 // ─── Toast ───────────────────────────────────────
 let _toastTimer;
-function showToast(msg, type = '') {
+function showToast(msg, type = '', ms = 2800) {
   const t = document.getElementById('toast');
   t.textContent = msg;
   t.className = 'toast' + (type ? ' ' + type : '');
   clearTimeout(_toastTimer);
-  _toastTimer = setTimeout(() => t.classList.add('hidden'), 2800);
+  _toastTimer = setTimeout(() => t.classList.add('hidden'), ms);
 }
 
 // ─── Helpers ─────────────────────────────────────

@@ -507,22 +507,13 @@ document.addEventListener('click', e => {
   }
 });
 
-// Highest numeric card no in the list + 1, as a 4-digit string ('' if 9999 is used up).
-function nextCardNo() {
-  let max = 0;
-  APP.customers.forEach(c => { const n = parseInt(c.cardNo, 10); if (n > max) max = n; });
-  return max >= 9999 ? '' : String(max + 1).padStart(4, '0');
-}
-
-async function showAddCustomerForm(prefix) {
+function showAddCustomerForm(prefix) {
   const modalBody = document.getElementById('modal-edit-body');
   document.getElementById('modal-edit-title').textContent = 'Add New Customer';
   modalBody.innerHTML = `
     <div class="field-group">
       <label class="field-label">Card No (numbers only)</label>
-      <input type="text" id="nc-cardno" class="field-input" placeholder="e.g. 1001" inputmode="numeric" autocomplete="off"
-        value="${nextCardNo()}" data-auto="1" oninput="this.dataset.auto='0'; document.getElementById('nc-hint').textContent=''" />
-      <p id="nc-hint" style="font-size:11px;color:var(--silver-deep);margin-top:6px;min-height:14px">Next running number — change it if needed.</p>
+      <input type="text" id="nc-cardno" class="field-input" placeholder="e.g. 1001" inputmode="numeric" autocomplete="off" />
     </div>
     <div class="field-group">
       <label class="field-label">Customer Name</label>
@@ -536,19 +527,6 @@ async function showAddCustomerForm(prefix) {
     <p id="nc-error" class="error-msg hidden"></p>
   `;
   openModal('modal-edit');
-
-  // Make sure the suggestion is based on the latest list. If it changes and the
-  // user hasn't touched the card no yet, update it in place.
-  refreshCustomers(true).then(() => {
-    const el = document.getElementById('nc-cardno');
-    if (!el || el.dataset.auto !== '1') return;
-    const n = nextCardNo();
-    if (n && el.value !== n) {
-      el.value = n;
-      const hint = document.getElementById('nc-hint');
-      if (hint) hint.textContent = 'Updated to the next free number.';
-    }
-  });
 }
 
 async function submitNewCustomer(prefix) {
@@ -583,22 +561,6 @@ async function submitNewCustomer(prefix) {
   }
 
   if (!res.success) {
-    // Card no already used (typically another staff just took it): fetch the
-    // latest list and move the field to the next free number.
-    if (/already exists/i.test(res.message || '')) {
-      await refreshCustomers(true);
-      const n = nextCardNo();
-      const el = document.getElementById('nc-cardno');
-      if (btn) { btn.disabled = false; btn.innerHTML = btnOriginalText; }
-      if (n && el) {
-        el.value = n;
-        el.dataset.auto = '1';
-        const hint = document.getElementById('nc-hint');
-        if (hint) hint.textContent = '';
-        return showFieldError(errEl, `Card No ${cardNo} was just taken. Changed to the next free number ${n} — check it and tap Add again.`);
-      }
-      return showFieldError(errEl, res.message);
-    }
     if (btn) { btn.disabled = false; btn.innerHTML = btnOriginalText; }
     return showFieldError(errEl, res.message);
   }

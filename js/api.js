@@ -2,7 +2,7 @@
 // api.js — Google Apps Script communication via GET (no CORS issues)
 // ============================================================
 
-const API_URL = 'https://script.google.com/macros/s/AKfycby_7XKr77TpxPUNSKS6LbLIhpkXNeN6hfe2nzEyGoAwW-qhEm4-zCkTqu2Qc6_1Au5log/exec';
+const API_URL = 'https://script.google.com/macros/s/AKfycbw5QYyMZEk-Bt62uhPNu-3qDg_C-p3q0VHJBJUzs1wahJ1mjnEMxwp_GBE7ns1zsFM/exec';
 
 async function apiCall(action, payload = {}) {
   try {
@@ -80,6 +80,19 @@ function apiGetCustomers() {
 
 function apiAddCustomer(name, cardNo, phone, staffId, staffName) {
   return apiCall('addCustomer', { name, cardNo, phone, staffId, staffName });
+}
+
+function apiUpdateCustomer(payload) {
+  return apiCall('updateCustomer', payload);
+}
+
+function apiDeleteCustomer(customerId, role, staffId, staffName) {
+  return apiCall('deleteCustomer', { customerId, role, staffId, staffName });
+}
+
+// Admin only. Returns { counts: { CUS0007: 12 } } — only customers that HAVE records.
+function apiGetCustomerRecordCounts(role) {
+  return apiCall('getCustomerRecordCounts', { role });
 }
 
 // ─── Device info (silent logging) ────────────────

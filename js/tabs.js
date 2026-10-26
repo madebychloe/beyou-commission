@@ -610,6 +610,7 @@ async function submitNewCustomer(prefix) {
   APP.pendingCustomers.push(newCus);
   sortCustomers(APP.customers);
   persistCustomers();
+  if (_cusCounts) delete _cusCounts[res.customerId];   // brand new → no records
 
   // Auto-select in form — only for record forms, which have these fields.
   // The Customers tab (prefix 'admin') has no such fields; calling this there
@@ -976,6 +977,7 @@ async function confirmResetPin(staffId, name) {
 }
 
 let _cusTabLimit = 50;
+let _cusCounts = null;   // { customerId: recordCount } — only customers WITH records; null = not loaded yet
 let _cusSearchTimer = null;
 
 function renderCustomerList() {
@@ -999,13 +1001,22 @@ function renderCustomerList() {
 
   const shown = sorted.slice(0, _cusTabLimit);
   const left  = sorted.length - shown.length;
-  listEl.innerHTML = shown.map(c => `
+  listEl.innerHTML = shown.map(c => {
+    const n = _cusCounts ? (_cusCounts[c.customerId] || 0) : null;   // null = still loading
+    const badge = n > 0 ? ` <span style="margin-left:4px;font-size:10px;color:var(--silver-deep)">🔒 ${n} record${n === 1 ? '' : 's'}</span>` : '';
+    const cid = esc(c.customerId);
+    return `
     <div class="admin-staff-card">
       <div class="admin-staff-info">
         <div class="staff-name">${esc(String(c.cardNo).padStart(4,'0'))} — ${esc(c.name)}</div>
-        <div class="staff-role">${c.phone === undefined ? '' : (esc(c.phone) || 'No phone') + ' &nbsp;·&nbsp; '}<span style="color:var(--silver-deep);font-size:10px">${esc(c.customerId)}</span></div>
+        <div class="staff-role">${c.phone === undefined ? '' : (esc(c.phone) || 'No phone') + ' &nbsp;·&nbsp; '}<span style="color:var(--silver-deep);font-size:10px">${cid}</span>${badge}</div>
       </div>
-    </div>`).join('') +
+      <div class="admin-staff-actions">
+        <button class="btn btn-ghost btn-sm" onclick="editCustomer('${cid}')">Edit</button>
+        ${n === 0 ? `<button class="btn btn-ghost btn-sm" style="margin-left:6px" onclick="deleteCustomerConfirm('${cid}')">Delete</button>` : ''}
+      </div>
+    </div>`;
+  }).join('') +
     (left > 0 ? `<button class="btn btn-ghost btn-sm" style="width:100%;margin-top:8px" onclick="showMoreCustomers()">Show all (${left} more)</button>` : '');
 }
 
@@ -1033,6 +1044,111 @@ async function renderCustomersTab(main) {
   if (APP.customers.length) renderCustomerList();
   else document.getElementById('cus-list').innerHTML = '<div class="loading"><span class="spinner"></span>Loading…</div>';
   refreshCustomers(true);   // re-renders this list when it lands (see onCustomersUpdated)
+  loadCustomerCounts();     // how many records each customer has → badge / lock rules
+}
+
+async function loadCustomerCounts() {
+  if (!APP.user || APP.user.role !== 'admin') return;
+  const res = await apiGetCustomerRecordCounts(APP.user.role);
+  if (res && res.success && res.counts) {
+    _cusCounts = res.counts;
+    if (APP.currentTab === 'customers' && document.getElementById('cus-list')) renderCustomerList();
+  }
+}
+
+// Apply a saved/deleted customer to every local copy and the browser cache.
+function applyCustomerChange(customerId, changes) {
+  [APP.customers, APP.pendingCustomers].forEach(list => {
+    const i = list.findIndex(x => x.customerId === customerId);
+    if (i < 0) return;
+    if (changes === null) list.splice(i, 1);
+    else Object.assign(list[i], changes);
+  });
+  sortCustomers(APP.customers);
+  persistCustomers();
+}
+
+function editCustomer(customerId) {
+  const c = APP.customers.find(x => x.customerId === customerId);
+  if (!c) return;
+  if (c.phone === undefined) {   // phone not loaded yet (cache-only copy) — saving now would wipe it
+    showToast('Still loading customer details — try again in a moment.', 'error');
+    return;
+  }
+  const n = _cusCounts ? (_cusCounts[customerId] || 0) : 0;
+  const locked = n > 0;
+  document.getElementById('modal-edit-title').textContent = 'Edit Customer';
+  document.getElementById('modal-edit-body').innerHTML = `
+    ${locked ? `<p style="font-size:12px;color:var(--silver-deep);line-height:1.6;margin-bottom:14px">🔒 This customer has ${n} record${n === 1 ? '' : 's'}, so only the phone number can be changed.</p>` : ''}
+    <div class="field-group">
+      <label class="field-label">Card No (numbers only)</label>
+      <input type="text" id="ec-cardno" class="field-input" inputmode="numeric" autocomplete="off" value="${esc(String(c.cardNo).padStart(4, '0'))}" ${locked ? 'disabled' : ''} />
+    </div>
+    <div class="field-group">
+      <label class="field-label">Customer Name</label>
+      <input type="text" id="ec-name" class="field-input" autocomplete="off" value="${esc(c.name)}" ${locked ? 'disabled' : ''} />
+    </div>
+    <div class="field-group">
+      <label class="field-label">Phone (optional)</label>
+      <input type="tel" id="ec-phone" class="field-input" autocomplete="off" value="${esc(c.phone)}" />
+    </div>
+    <button id="ec-submit-btn" class="btn btn-primary btn-full" onclick="submitEditCustomer('${esc(customerId)}')">SAVE CHANGES</button>
+    <p id="ec-error" class="error-msg hidden"></p>`;
+  openModal('modal-edit');
+}
+
+async function submitEditCustomer(customerId) {
+  if (!APP.user) return;
+  const errEl = document.getElementById('ec-error');
+  let cardNo  = document.getElementById('ec-cardno').value.trim();
+  const name  = document.getElementById('ec-name').value.trim();
+  const phone = document.getElementById('ec-phone').value.trim();
+
+  if (!cardNo) return showFieldError(errEl, 'Card No is required.');
+  if (!/^\d+$/.test(cardNo)) return showFieldError(errEl, 'Card No must be numbers only.');
+  if (parseInt(cardNo, 10) > 9999) return showFieldError(errEl, 'Card No must be 4 digits or less (0001–9999).');
+  if (!name) return showFieldError(errEl, 'Customer name is required.');
+  cardNo = String(parseInt(cardNo, 10)).padStart(4, '0');
+  errEl.classList.add('hidden');
+
+  const btn = document.getElementById('ec-submit-btn');
+  const btnText = btn ? btn.innerHTML : '';
+  if (btn) { btn.disabled = true; btn.innerHTML = '<span class="spinner-light"></span> Saving…'; }
+
+  const res = await apiUpdateCustomer({
+    customerId, cardNo, name, phone,
+    role: APP.user.role, staffId: APP.user.staffId, staffName: APP.user.name,
+  });
+
+  if (!res || !res.success) {
+    if (btn) { btn.disabled = false; btn.innerHTML = btnText; }
+    if (res && /record/i.test(res.message || '')) loadCustomerCounts();   // lock state changed → refresh badges
+    return showFieldError(errEl, (res && res.message) || 'Could not save. Please try again.');
+  }
+
+  applyCustomerChange(customerId, { cardNo: res.customer.cardNo, name: res.customer.name, phone: res.customer.phone });
+  showToast('Customer updated', 'success');
+  closeModal('modal-edit');
+  if (document.getElementById('cus-list')) renderCustomerList();
+  refreshCustomers(true);   // quiet re-sync with the sheet
+}
+
+async function deleteCustomerConfirm(customerId) {
+  const c = APP.customers.find(x => x.customerId === customerId);
+  if (!c || !APP.user) return;
+  if (!confirm(`Delete customer ${String(c.cardNo).padStart(4, '0')} — ${c.name}?\nThis cannot be undone.`)) return;
+
+  const res = await apiDeleteCustomer(customerId, APP.user.role, APP.user.staffId, APP.user.name);
+  if (!res || !res.success) {
+    showToast((res && res.message) || 'Could not delete. Please try again.', 'error');
+    loadCustomerCounts();   // we probably had stale counts
+    return;
+  }
+  applyCustomerChange(customerId, null);
+  if (_cusCounts) delete _cusCounts[customerId];
+  showToast('Customer deleted', 'success');
+  if (document.getElementById('cus-list')) renderCustomerList();
+  refreshCustomers(true);
 }
 
 window.filterCustomerList = function() {
